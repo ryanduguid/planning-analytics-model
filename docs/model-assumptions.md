@@ -54,8 +54,8 @@ there today.
 | --- | --- | --- | --- | --- | --- |
 | SG Rate | FY2025-26 | 0.12 | [1] s 19(2), table item for a year starting on or after 1 July 2025 | 2026-08-23 | Verified against primary source |
 | SG Rate | FY2026-27 | 0.12 | [2] s 17A(2), which reads "charge percentage means 12" | 2026-08-23 | Verified against primary source |
-| Maximum Contribution Base | FY2026-27 | 270830 | [2] s 10A(5) and s 10A(6) | 2026-08-23 | Formula and annual basis verified against primary source. The basic concessional contributions cap input needs one human confirmation. See note A |
-| Maximum Contribution Base | FY2025-26 | 250000 | [1] s 15, which sets a quarterly base that this row states as its annual equivalent | 2026-08-23 | Formula verified against primary source. The basic concessional contributions cap input needs one human confirmation. See note B |
+| Maximum Contribution Base | FY2026-27 | 270830 | [2] s 10A(5) and s 10A(6) | 2026-08-23 | Formula and annual basis verified against primary source. The concessional contributions cap input confirmed by a person against the ATO page. See note A |
+| Maximum Contribution Base | FY2025-26 | 250000 | [1] s 15, which sets a quarterly base that this row states as its annual equivalent | 2026-08-23 | Formula verified against primary source. The concessional contributions cap input confirmed by a person against the ATO page. See note B |
 | Payroll Tax Rate | FY2025-26 and FY2026-27 | 0.0545 | [3] | 2026-08-23 | Verified against primary source |
 | Payroll Tax Threshold | FY2025-26 and FY2026-27 | 1200000 | [3] | 2026-08-23 | Verified against primary source |
 
@@ -79,12 +79,12 @@ With a basic concessional contributions cap of $32,500, the formula gives
 $32,500 x 100 / 12 = $270,833.33, rounded down to $270,830. That matches the
 shipped value exactly.
 
-The $32,500 cap is the one input not verified here. It is the indexed basic
-concessional contributions cap published by the Australian Taxation Office, and
-`ato.gov.au` returned HTTP 403 to every automated fetch from this machine on
-23 August 2026. Secondary commentary is consistent on $32,500, and the exact
-arithmetic match is strong circumstantial support, but a person should confirm
-the cap on the ATO rates and thresholds page before the number is trusted.
+The $32,500 cap is the indexed basic concessional contributions cap published by
+the Australian Taxation Office. It could not be read from this machine, because
+`ato.gov.au` returned HTTP 403 to every automated fetch on 23 August 2026, so it
+was checked by a person against the ATO rates and thresholds page on that date
+and confirmed. The formula and the annual basis come from the Act itself, and
+the arithmetic matches the shipped value exactly.
 
 ### Note B: how 250000 is built, and what it replaced
 
@@ -102,10 +102,9 @@ $30,000 x 100 / 12 = $250,000 for the year, being $62,500 a quarter. That is the
 same mechanism note A describes for the following year, which is why the two
 figures move together.
 
-The $30,000 cap is the one input not verified here, for the same reason as note
-A: `ato.gov.au` returned HTTP 403 to every automated fetch from this machine on
-23 August 2026. Confirm it on the ATO rates and thresholds page before trusting
-the figure.
+The $30,000 cap could not be read from this machine either, for the same reason
+as note A. It was checked by a person against the ATO rates and thresholds page
+on 23 August 2026 and confirmed.
 
 This row previously shipped 260280, which is four times $65,070, and $65,070 a
 quarter was the FY2024-25 base. It was a figure carried forward one year too

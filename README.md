@@ -25,8 +25,9 @@ model on every push and fails if a figure moves.
   store with weighted consolidation, a CSV loader and a command line.
 - `examples/` is invented input data. Every entity, rate and volume in it is
   fictional.
-- `docs/model-assumptions.md` traces every statutory figure to its source and
-  says which ones still need a human to confirm them.
+- `docs/model-assumptions.md` traces every statutory figure to its source, and
+  says for each one whether it was read from the legislation or confirmed
+  against the administering authority's own page.
 
 ## Install
 
@@ -169,9 +170,9 @@ independently, in his own time and on his own equipment. Nothing here is the
 work of any employer, and no client data was used to build or test it.
 
 Parts of this repository were written with AI assistance. Every statutory figure
-is traced to its source in `docs/model-assumptions.md`, including the ones that
-could not be confirmed from a primary source and still need a human to check
-them.
+is traced to its source in `docs/model-assumptions.md`, which records what was
+read from the legislation, what was taken from the administering authority's own
+page, and who confirmed the figures that could not be fetched.
 
 ## Licence
 
