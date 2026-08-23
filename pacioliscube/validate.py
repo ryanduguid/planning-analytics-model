@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 from typing import Iterator, NamedTuple
 
-from pacioliscube.model import Cube, Model, ModelError
-from pacioliscube.rules import Area, CellRef, Expr, IfExpr, BinaryOp, Comparison, Number
+from pacioliscube.model import Cube, Model
+from pacioliscube.rules import Area, CellRef, Expr, IfExpr, BinaryOp, Comparison
 
 ERROR = "error"
 WARNING = "warning"
