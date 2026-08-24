@@ -1,5 +1,19 @@
 # PaciolisCube
 
+```
++----------------------------------------------------------------------+
+|                             PaciolisCube                             |
++----------------------------------------------------------------------+
+|            IBM Planning Analytics budget model as source             |
++----------------------------------+-----------------------------------+
+| DR  what it gives you            | CR  what it needs                 |
++----------------------------------+-----------------------------------+
+| runs TM1 rules with no server    | PA model files in Git format      |
+| validates model structure        | CSV data for cube loading         |
+| prints a P and L report          | -                                 |
++----------------------------------+-----------------------------------+
+```
+
 [![tests](https://github.com/ryanduguid/PaciolisCube/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/PaciolisCube/actions/workflows/ci.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-5C2D91.svg?labelColor=04001F)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-5C2D91.svg?labelColor=04001F)](https://www.python.org/)
