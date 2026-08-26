@@ -12,7 +12,6 @@ Nothing here touches a network. The whole tree is data on disk.
 from __future__ import annotations
 
 import json
-import os
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable, NamedTuple, Optional
@@ -193,11 +192,8 @@ def _resolve_link(base: Path, link: str, root: Optional[Path] = None) -> Path:
     """
     candidate = (base.parent / link).resolve()
     boundary = (root or base.parent).resolve()
-    try:
-        if os.path.commonpath([candidate, boundary]) != str(boundary):
-            raise ModelError(f"{base}: link {link!r} resolves outside the model root")
-    except ValueError as error:  # different drives on Windows
-        raise ModelError(f"{base}: link {link!r} resolves outside the model root") from error
+    if not candidate.is_relative_to(boundary):
+        raise ModelError(f"{base}: link {link!r} resolves outside the model root")
     return candidate
 
 

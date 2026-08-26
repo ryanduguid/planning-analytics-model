@@ -154,22 +154,6 @@ Breaking any of those in the model source turns the suite red.
 - The engine covers the subset of the TM1 rules language this model uses. It is
   not a Planning Analytics reimplementation, and it will not run an arbitrary
   model.
-- Nothing here was tested against a live Planning Analytics server. There is no
-  free local developer edition, and the Planning Analytics as a Service trial
-  blocks the modelling workbench, so the deployment path below is unexercised.
-
-## Deploying to a real server
-
-The optional extra translates the model into TM1py objects and creates them
-through a connection you supply:
-
-```bash
-pip install "pacioliscube[deploy]"
-```
-
-It translates every object before it writes any of them, so a model it refuses
-cannot leave a half built database. It creates and updates, never deletes. Read
-`pacioliscube/deploy.py` before you point it at anything that matters.
 
 ## Client data
 

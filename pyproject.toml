@@ -32,8 +32,7 @@ Issues = "https://github.com/ryanduguid/PaciolisCube/issues"
 pacioliscube = "pacioliscube.cli:main"
 
 [project.optional-dependencies]
-deploy = ["TM1py>=2.3.1"]
-dev = ["pytest>=8", "TM1py>=2.3.1"]
+dev = ["pytest>=8"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pacioliscube"]

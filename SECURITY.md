@@ -23,11 +23,6 @@ Model source is data, not code. The loader refuses a link that climbs out of the
 model root, so a manifest or an object file cannot reach an arbitrary path on
 the machine that loads it. Rule text is parsed, never executed.
 
-The optional `deploy` extra is the exception. Installing it pulls in TM1py and
-its dependencies, and using it writes to whichever Planning Analytics database
-the connection you pass points at. That code path needs a server, a credential
-and an explicit call, none of which the rest of the project has.
-
 The TurboIntegrator processes under `model/processes/` are source for a Planning
 Analytics server to run. Nothing here executes them. Read them before you deploy
 them, the same as any script you did not write.

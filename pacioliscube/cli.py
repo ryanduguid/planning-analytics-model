@@ -1,9 +1,5 @@
 """The command line, being the way a shell script or a CI job drives this package.
 
-It is not the only way. ``deploy.py`` is an import driven API, and the test
-suite calls the package straight, so this module is a wrapper over the same
-functions rather than a gate in front of them.
-
 Three subcommands. ``validate`` reports what is structurally wrong with a model
 tree, ``calculate`` prints the value at named cells, and ``report`` prints a
 small profit and loss. Every run reads: nothing here writes a file, touches a
@@ -30,7 +26,6 @@ prove is wrong, so failing a build on one would make the check useless.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -104,19 +99,6 @@ class CliError(Exception):
     def __init__(self, code: int, message: str) -> None:
         super().__init__(message)
         self.code = code
-
-
-def _inside(candidate: Path, boundary: Path) -> bool:
-    """Is a resolved path inside a boundary, the test model.py puts on its links.
-
-    The model tree fences itself. A data directory is given separately, so its
-    files are fenced here, which stops a symlink in a data directory being used
-    to read a file somewhere else on the disk.
-    """
-    try:
-        return os.path.commonpath([candidate, boundary]) == str(boundary)
-    except ValueError:  # different drives on Windows
-        return False
 
 
 def _directory(argument: str, what: str) -> Path:
@@ -240,7 +222,7 @@ def _load_data(model: Model, directory: Path) -> CellStore:
     # saying that both are there.
     feeding: dict[str, list[Path]] = {}
     for path in files:
-        if not _inside(path.resolve(), boundary):
+        if not path.resolve().is_relative_to(boundary):
             raise CliError(EXIT_USAGE, f"{path}: this file resolves outside the data directory")
         feeding.setdefault(_cube_for_file(model, path).name, []).append(path)
     for cube_name, paths in feeding.items():
