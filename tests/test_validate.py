@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from pacioliscube import validate as validation
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
 
@@ -86,6 +87,77 @@ def test_a_clean_model_reports_nothing(tmp_path):
         rules="SKIPCHECK;\n['Amount'] = N: ['Units'] * ['Price'];\nFEEDERS;\n['Units'] => ['Amount'];\n",
     )
     assert validate_model(model) == ()
+
+
+def test_cube_validation_phases_preserve_exact_finding_order(tmp_path):
+    (tmp_path / "dimensions").mkdir(parents=True)
+    (tmp_path / "dimensions" / "Ghost.json").write_text(
+        '{"Name": "Ghost", "Hierarchies@Code.links": ["Ghost.hierarchies/Ghost.json"]}',
+        encoding="utf-8",
+    )
+    (tmp_path / "dimensions" / "Ghost.hierarchies").mkdir()
+    (tmp_path / "dimensions" / "Ghost.hierarchies" / "Ghost.json").write_text(
+        '{"Name": "Ghost", "Elements": [{"Name": "One", "Type": "Numeric"}], "Edges": []}',
+        encoding="utf-8",
+    )
+    model = build_model(
+        tmp_path,
+        cube_dimensions='"../dimensions/Colour.json", "../dimensions/Ghost.json"',
+        rules=(
+            "SKIPCHECK;\n"
+            "['Ghost'] = N: DB('Missing', 'Red');\n"
+            "FEEDERS;\n"
+            "['Units'] => DB('Missing', !Colour, 'Amount');\n"
+        ),
+    )
+    cube = model.cubes["Sales"]
+    cube_location = str(cube.source)
+    rule_location = f"{cube.rules_source} line 2"
+    feeder_location = f"{cube.rules_source} line 4"
+
+    dimensions = [
+        validation.Finding(
+            "error",
+            "DIM001",
+            "cube 'Sales' names dimension 'Ghost', which the model does not hold",
+            cube_location,
+        )
+    ]
+    rules = [
+        validation.Finding(
+            "error",
+            "ELE001",
+            "no dimension of cube 'Sales' holds an element named 'Ghost'",
+            rule_location,
+        ),
+        validation.Finding(
+            "error",
+            "DIM001",
+            "a rule reads cube 'Missing', which the model does not hold",
+            rule_location,
+        ),
+    ]
+    feeders = [
+        validation.Finding(
+            "error",
+            "ELE001",
+            "no dimension of cube 'Sales' holds an element named 'Units'",
+            feeder_location,
+        ),
+        validation.Finding(
+            "error",
+            "DIM001",
+            "a feeder points at cube 'Missing', which the model does not hold",
+            feeder_location,
+        ),
+    ]
+
+    assert validation._validate_cube_dimensions(model, cube) == dimensions
+    assert validation._validate_cube_rules(model, cube) == rules
+    assert validation._validate_cube_feeders(model, cube) == feeders
+    phase_findings = dimensions + rules + feeders
+    assert validation._validate_cube(model, cube) == phase_findings
+    assert validate_model(model)[: len(phase_findings)] == tuple(phase_findings)
 
 
 def test_dim001_a_cube_naming_an_absent_dimension(tmp_path):
