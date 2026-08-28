@@ -29,12 +29,25 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ matrix.python }}
       - run: pip install "uv==0.12.5"
-      - run: uv run --locked --extra dev --python ${{ matrix.python }} pytest -q
+      - name: run tests
+        if: matrix.os != 'ubuntu-latest' || matrix.python != '3.13'
+        run: uv run --locked --extra dev --python ${{ matrix.python }} pytest -q
+      - name: run tests with scoped branch coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: >-
+          uv run --locked --extra dev --python ${{ matrix.python }}
+          coverage run --branch --source=pacioliscube.validate -m pytest -q
+      - name: require complete changed-line coverage in validation logic
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: |
+          uv run --locked --extra dev --python ${{ matrix.python }} coverage xml --include="pacioliscube/validate.py" -o coverage.xml
+          uv run --locked --extra dev --python ${{ matrix.python }} diff-cover coverage.xml --compare-branch=origin/main --branch-coverage --fail-under=100
 
   dependency-audit:
     runs-on: ubuntu-latest
