@@ -245,7 +245,15 @@ def load_dimension(path: Path, root: Optional[Path] = None) -> Dimension:
 
 
 def load_cube(path: Path, root: Optional[Path] = None) -> Cube:
-    """Load one cube, resolving its dimension links and its rules file."""
+    """Load one cube, resolving its dimension links and its rules file.
+
+    A cube in this layout sits in ``cubes/`` and links its dimensions as
+    ``../dimensions/X.json``, so a cube read on its own is fenced to the tree
+    holding ``cubes/`` rather than to ``cubes/`` itself, which no real cube
+    could satisfy. Loading a whole model still passes the manifest's own root.
+    """
+    if root is None:
+        root = path.parent.parent
     payload = _read_json(path)
     name = payload.get("Name")
     if not name:

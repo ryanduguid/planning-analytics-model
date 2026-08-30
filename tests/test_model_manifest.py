@@ -27,6 +27,14 @@ def test_a_cube_records_its_dimensions_in_order():
     assert cube.dimensions == ("Colour", "Measure")
 
 
+def test_a_cube_loads_on_its_own_from_the_git_native_layout():
+    # Every cube in this layout links its dimensions as ../dimensions/X.json, so
+    # a loader fenced to the cube's own folder refuses the very file it exists
+    # to read, and reports it as a path climbing out of the model root.
+    cube = load_cube(MINI / "cubes" / "Sales.json")
+    assert cube.dimensions == ("Colour", "Measure")
+
+
 def test_a_cube_with_rules_carries_a_parsed_ruleset():
     cube = load_model(MINI).cubes["Sales"]
     assert cube.rules is not None

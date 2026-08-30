@@ -205,6 +205,16 @@ def test_are001_a_db_call_with_the_wrong_number_of_coordinates(tmp_path):
     assert "ARE001" in codes(model)
 
 
+def test_are001_a_cross_cube_feeder_with_the_wrong_number_of_coordinates(tmp_path):
+    # The same mistake as the rule above, written as a feeder. A real rule
+    # compiler refuses both, so the validator has to report both.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Amount'] = N: 1;\nFEEDERS;\n['Units'] => DB('Sales', 'Red');\n",
+    )
+    assert "ARE001" in codes(model)
+
+
 def test_rul001_a_rule_targeting_a_consolidation_without_the_c_qualifier(tmp_path):
     model = build_model(
         tmp_path,

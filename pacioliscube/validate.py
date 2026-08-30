@@ -204,7 +204,19 @@ def _validate_cube_feeders(model: Model, cube: Cube) -> list[Finding]:
                 )
             )
             continue
-        for element in _area_elements(feeder.target):
+        coordinates = _area_elements(feeder.target)
+        if len(coordinates) != len(target.dimensions):
+            findings.append(
+                Finding(
+                    ERROR,
+                    "ARE001",
+                    f"DB('{feeder.target_cube}', ...) passes {len(coordinates)} coordinates for a "
+                    f"cube of {len(target.dimensions)} dimensions",
+                    where,
+                )
+            )
+            continue
+        for element in coordinates:
             if element.startswith("!"):
                 if element[1:] not in cube.dimensions:
                     findings.append(

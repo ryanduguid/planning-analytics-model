@@ -278,7 +278,7 @@ Each simplification below is a deliberate choice, followed by what it costs.
 The statutory figures ship as data so the model runs out of the box and the
 tests have something to compute. They are not maintained. Rates, thresholds and
 indexed bases change at least annually, the FY2026-27 payday super figures are
-new law, and one shipped figure already fails to reconcile, as note B records.
+new law, and one figure had already needed correcting once, as note B records.
 
 To change them, edit `examples/drivers.csv`. One row per `Year`, `Version`,
 `Period`, `DriverMeasure`, with `Period` always `Full Year` because these are

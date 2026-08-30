@@ -10,5 +10,22 @@ SKIPCHECK;
     DB('Capex', !Year, !Version, 'Full Year', !Entity, !Fleet, 'Asset Life Months');
 
 FEEDERS;
+# A cell to cell feeder keeps the source cell's own period, and every addition
+# is held at Full Year, so that form reaches Full Year and nothing else. The
+# charge is calculated in all twelve months, so each month is fed by name.
+# Without them a real database reads no depreciation at all, and the rule above
+# is still right, which is exactly the failure a feeder is there to prevent.
 ['Additions'] => ['Depreciation Charge'];
+['Additions'] => DB('Capex', !Year, !Version, 'Jul', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Aug', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Sep', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Oct', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Nov', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Dec', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Jan', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Feb', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Mar', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Apr', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'May', !Entity, !Fleet, 'Depreciation Charge');
+['Additions'] => DB('Capex', !Year, !Version, 'Jun', !Entity, !Fleet, 'Depreciation Charge');
 ['Depreciation Charge'] => DB('PnL', !Year, !Version, !Period, !Entity, 'Workshop', 'Depreciation', 'Amount');

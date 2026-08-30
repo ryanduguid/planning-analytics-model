@@ -119,6 +119,35 @@ def test_every_source_cube_declares_feeders():
         assert model.cubes[name].rules.feeders, name
 
 
+def periods_fed_with(cube, measure: str) -> set[str]:
+    """Every element a feeder names when it points at one calculated measure."""
+    fed: set[str] = set()
+    for feeder in cube.rules.feeders:
+        named = {element for group in feeder.target.selectors for element in group}
+        if measure in named:
+            fed |= named
+    return fed
+
+
+def test_every_month_of_depreciation_is_fed_by_name():
+    """A feeder keeps the source cell's own period wherever the target is silent.
+
+    Additions are held at the Full Year period, so a cell to cell feeder reaches
+    Full Year and no month. Depreciation is calculated in all twelve months and
+    the P and L pulls it month by month, so each month has to be named. Left
+    unfed the charge is invisible in a real database while the rule still reads
+    as correct, which is the one failure a feeder exists to prevent.
+    """
+    model = load_model(MODEL_ROOT)
+    months = model.hierarchy("Period").leaves_under("FY")
+    fed = periods_fed_with(model.cubes["Capex"], "Depreciation Charge")
+    unfed = [month for month in months if month not in fed]
+    assert not unfed, (
+        "no feeder in Capex.rules names " + ", ".join(unfed) + ", so depreciation "
+        "would not appear in those months on a real server"
+    )
+
+
 def test_the_reporting_cube_is_fed_from_its_source_cubes():
     model = load_model(MODEL_ROOT)
     cross = [

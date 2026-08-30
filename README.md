@@ -21,6 +21,9 @@
 An IBM Planning Analytics budgeting model published as source, with an offline
 engine that computes it and a test suite that asserts the answers.
 
+**Package lifecycle:** source-only. Install from this repository; it is not
+published to PyPI.
+
 Planning Analytics models usually live inside a server. You can read a rule file
 on GitHub, but you cannot run it, and nothing tells you whether a change to it
 broke a number. This repository holds a complete driver based budget for a
@@ -46,7 +49,9 @@ model on every push and fails if a figure moves.
 ## Install
 
 ```bash
-pip install pacioliscube
+git clone https://github.com/ryanduguid/PaciolisCube.git
+cd PaciolisCube
+python -m pip install .
 ```
 
 The runtime imports nothing outside the Python standard library. From a clone:
