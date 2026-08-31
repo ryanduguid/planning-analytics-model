@@ -166,6 +166,10 @@ No real data belongs in this repository. The `.gitignore` blocks the file names
 ledgers and payroll exports arrive under, and everything in `examples/` is
 invented. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Releases
+
+The repository's [GitHub Releases](https://github.com/ryanduguid/PaciolisCube/releases) page is the canonical release history. A separate changelog is intentionally not maintained.
+
 ## Author
 
 Written by Ryan Duguid, a provisional member of Chartered Accountants ANZ,
