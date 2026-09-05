@@ -1,8 +1,8 @@
-# PaciolisCube
+# planning-analytics-model
 
 ```
 +----------------------------------------------------------------------+
-|                             PaciolisCube                             |
+|                       planning-analytics-model                       |
 +----------------------------------------------------------------------+
 |            IBM Planning Analytics budget model as source             |
 +----------------------------------+-----------------------------------+
@@ -14,7 +14,9 @@
 +----------------------------------+-----------------------------------+
 ```
 
-[![tests](https://github.com/ryanduguid/PaciolisCube/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/PaciolisCube/actions/workflows/ci.yml)
+The PaciolisCube budget model. This repository was named PaciolisCube until September 2026; the old URL redirects.
+
+[![tests](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-5C2D91.svg?labelColor=04001F)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-5C2D91.svg?labelColor=04001F)](https://www.python.org/)
 
@@ -49,8 +51,8 @@ model on every push and fails if a figure moves.
 ## Install
 
 ```bash
-git clone https://github.com/ryanduguid/PaciolisCube.git
-cd PaciolisCube
+git clone https://github.com/ryanduguid/planning-analytics-model.git
+cd planning-analytics-model
 python -m pip install .
 ```
 
@@ -168,7 +170,7 @@ invented. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Releases
 
-The repository's [GitHub Releases](https://github.com/ryanduguid/PaciolisCube/releases) page is the canonical release history. A separate changelog is intentionally not maintained.
+The repository's [GitHub Releases](https://github.com/ryanduguid/planning-analytics-model/releases) page is the canonical release history. A separate changelog is intentionally not maintained.
 
 ## Author
 
