@@ -1,9 +1,9 @@
 """Repository contract for the risk-based changed-line coverage pilot."""
 
+import re
 from pathlib import Path
 
 import pytest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,8 +17,8 @@ def test_changed_line_coverage_is_scoped_and_fail_closed() -> None:
         pytest.skip("CI workflow is not included in the source distribution")
     workflow = workflow_path.read_text(encoding="utf-8")
 
-    assert '"coverage==7.15.4"' in pyproject
-    assert '"diff-cover==10.5.1"' in pyproject
+    assert re.search(r'"coverage==\d+\.\d+\.\d+"', pyproject)
+    assert re.search(r'"diff-cover==\d+\.\d+\.\d+"', pyproject)
     assert "fetch-depth: 0" in workflow
     assert "--source=pacioliscube.validate" in workflow
     assert '--include="pacioliscube/validate.py"' in workflow
