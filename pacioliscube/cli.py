@@ -35,7 +35,7 @@ from pacioliscube.data import load_into_store
 from pacioliscube.evaluate import CellStore, EvaluationError, consolidate, evaluate
 from pacioliscube.model import Cube, Model, ModelError, load_model
 from pacioliscube.validate import ERROR, Finding, validate_model
-from pacioliscube.version import __version__
+from pacioliscube import __version__
 
 EXIT_OK = 0
 EXIT_USAGE = 1

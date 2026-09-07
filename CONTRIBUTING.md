@@ -43,10 +43,15 @@ uv run --locked --extra dev pytest -q
 The same commands CI runs: ruff and mypy in the `lint` job, then the tests on
 Python 3.10, 3.12 and 3.13 (and 3.12 on Windows). Install the git hooks once
 with `uv tool install pre-commit && pre-commit install`; they run the pinned
-ruff check and ruff format on staged files. The packaging job additionally builds the wheel,
+ruff check on staged files. The packaging job additionally builds the wheel,
 installs it into a clean environment and runs the real command line against the
 real model tree, because a wheel that cannot find its own model is a broken
 build artefact.
+
+The bounded mutmut pilot over `pacioliscube/evaluate.py`, with its survivor
+ledger and the decision to keep the pin, is recorded in
+[docs/mutation-baseline.md](docs/mutation-baseline.md). It is a test-design
+aid, not a CI gate.
 
 ## Model changes
 
