@@ -34,6 +34,8 @@ pacioliscube = "pacioliscube.cli:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "ruff==0.16.6",
+    "mypy==2.3.1",
     "hypothesis==6.167.1",
     "mutmut==3.7.0",
     "coverage==7.16.0",
@@ -59,6 +61,21 @@ include = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["pacioliscube", "tests"]
+
+[tool.ruff.lint]
+# First-enablement set: syntax and undefined-name errors only (E9, F82).
+# Existing import layout and string literals stay as they are.
+select = ["E9", "F82"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["pacioliscube"]
+ignore_missing_imports = true
+pretty = true
 
 [tool.mutmut]
 source_paths = ["pacioliscube/"]

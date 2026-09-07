@@ -111,8 +111,10 @@ def _validate_cube_rules(model: Model, cube: Cube) -> list[Finding]:
     """Report invalid rule targets and cell references for one ruled cube."""
     findings: list[Finding] = []
     rules_location = str(cube.rules_source)
+    rules = cube.rules
+    assert rules is not None, f"cube {cube.name!r} has no rules to validate"
 
-    for rule in cube.rules.rules:
+    for rule in rules.rules:
         where = f"{rules_location} line {rule.source_line}"
         findings.extend(_check_elements_resolve(model, cube, _area_elements(rule.area), where))
         if rule.area.qualifier != "C" and _target_is_consolidated(model, cube, rule.area):
@@ -184,8 +186,10 @@ def _validate_cube_feeders(model: Model, cube: Cube) -> list[Finding]:
     """Report invalid feeder sources and targets for one ruled cube."""
     findings: list[Finding] = []
     rules_location = str(cube.rules_source)
+    rules = cube.rules
+    assert rules is not None, f"cube {cube.name!r} has no feeders to validate"
 
-    for feeder in cube.rules.feeders:
+    for feeder in rules.feeders:
         where = f"{rules_location} line {feeder.source_line}"
         findings.extend(_check_elements_resolve(model, cube, _area_elements(feeder.area), where))
         if feeder.target_cube is None:
