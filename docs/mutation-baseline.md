@@ -11,7 +11,7 @@ uv run --locked --extra dev --python 3.12 mutmut results
 
 ## Baseline
 
-GitHub Actions run [33086803423](https://github.com/ryanduguid/PaciolisCube/actions/runs/33086803423)
+GitHub Actions run [33086803423](https://github.com/ryanduguid/planning-analytics-model/actions/runs/33086803423)
 tested commit `73c411f8ff5af6f4ca30f2e17e0ae39f49746c68` on Ubuntu with Python 3.12.
 The complete run took 38 seconds and produced:
 
@@ -31,7 +31,7 @@ rule.
 ## Survivor ledger
 
 Every one of the 68 true survivors from follow-up run
-[33087043111](https://github.com/ryanduguid/PaciolisCube/actions/runs/33087043111)
+[33087043111](https://github.com/ryanduguid/planning-analytics-model/actions/runs/33087043111)
 is covered by one grouped disposition below. Ranges are inclusive.
 
 | Mutant identifiers | Count | Disposition |
