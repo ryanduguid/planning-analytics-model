@@ -36,7 +36,7 @@ dev = [
     "pytest>=8",
     "hypothesis==6.165.10",
     "mutmut==3.7.0",
-    "coverage==7.15.4",
+    "coverage==7.16.0",
     "diff-cover==10.5.1",
 ]
 
