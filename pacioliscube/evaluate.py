@@ -17,7 +17,7 @@ coordinate is consolidated, the weighted sum of the cells beneath it.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Iterator, Optional
+from typing import Iterable, Iterator, Optional
 
 from pacioliscube.model import Cube, Model, ModelError
 from pacioliscube.rules import (
@@ -338,3 +338,15 @@ def evaluate(model: Model, store: CellStore) -> CellStore:
 def consolidate(model: Model, store: CellStore, cube: str, coordinate: Coordinate) -> Decimal:
     """Resolve a coordinate that may name consolidated elements, applying C rules."""
     return _Engine(model, store).value(cube, coordinate)
+
+
+def consolidate_many(
+    model: Model, store: CellStore, cells: Iterable[tuple[str, Coordinate]]
+) -> Iterator[Decimal]:
+    """Yield a batch in order, sharing cached values only within this iteration.
+
+    Keep the model and store unchanged until the batch has been consumed.
+    """
+    engine = _Engine(model, store)
+    for cube, coordinate in cells:
+        yield engine.value(cube, coordinate)

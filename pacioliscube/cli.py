@@ -29,10 +29,10 @@ import argparse
 import sys
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from pacioliscube.data import load_into_store
-from pacioliscube.evaluate import CellStore, EvaluationError, consolidate, evaluate
+from pacioliscube.evaluate import CellStore, EvaluationError, consolidate_many, evaluate
 from pacioliscube.model import Cube, Model, ModelError, load_model
 from pacioliscube.validate import ERROR, Finding, validate_model
 from pacioliscube import __version__
@@ -263,9 +263,11 @@ def _evaluate(model: Model, store: CellStore) -> CellStore:
         raise CliError(EXIT_INVALID_MODEL, str(error)) from error
 
 
-def _value(model: Model, store: CellStore, cube: str, coordinate: tuple[str, ...]) -> Decimal:
+def _values(
+    model: Model, store: CellStore, cells: Sequence[tuple[str, tuple[str, ...]]]
+) -> Iterator[Decimal]:
     try:
-        return consolidate(model, store, cube, coordinate)
+        yield from consolidate_many(model, store, cells)
     except EvaluationError as error:
         raise CliError(EXIT_CALCULATION, str(error)) from error
     except ModelError as error:
@@ -390,8 +392,9 @@ def _calculate_command(args: argparse.Namespace) -> int:
     # a second rather than a full load and evaluation.
     cells = [_parse_cell(model, text) for text in args.cell]
     store = _evaluate(model, _load_data(model, data))
-    for cube, coordinate in cells:
-        print(f"{cube}:{','.join(coordinate)} = {_plain(_value(model, store, cube, coordinate))}")
+    values = _values(model, store, cells)
+    for (cube, coordinate), value in zip(cells, values):
+        print(f"{cube}:{','.join(coordinate)} = {_plain(value)}")
     return EXIT_OK
 
 
@@ -415,10 +418,11 @@ def _report_command(args: argparse.Namespace) -> int:
         for account in REPORT_ROWS
     ]
     store = _evaluate(model, _load_data(model, data))
-    values = [
-        _value(model, store, cube.name, tuple(row[dimension] for dimension in cube.dimensions))
+    cells = [
+        (cube.name, tuple(row[dimension] for dimension in cube.dimensions))
         for row in rows
     ]
+    values = list(_values(model, store, cells))
     # The row names drive the sign, not the resolved element, because a model
     # may spell an account in another case and the convention is the report's.
     amounts = [
