@@ -35,6 +35,7 @@ def load_csv(path: Path, cube: Cube, model: Model) -> Iterator[tuple[Coordinate,
                 f"{path} row 1: the header has {len(header)} columns but cube {cube.name!r} "
                 f"needs {width}, being {', '.join(cube.dimensions)} then a value"
             )
+        seen: dict[Coordinate, tuple[Decimal, int]] = {}
         for number, row in enumerate(reader, start=2):
             if not row or all(field.strip() == "" for field in row):
                 continue
@@ -61,7 +62,15 @@ def load_csv(path: Path, cube: Cube, model: Model) -> Iterator[tuple[Coordinate,
                 raise ModelError(
                     f"{path} row {number}: value {text!r} is not a finite number"
                 )
-            yield tuple(coordinate), value
+            cell = tuple(coordinate)
+            previous = seen.get(cell)
+            if previous is not None and previous[0] != value:
+                raise ModelError(
+                    f"{path} row {number}: conflicting value for {cube.name!r} "
+                    f"at {list(cell)}; first supplied on row {previous[1]}"
+                )
+            seen.setdefault(cell, (value, number))
+            yield cell, value
 
 
 def load_into_store(model: Model, cube_name: str, path: Path, store) -> int:
