@@ -103,6 +103,10 @@ pacioliscube calculate model --data examples --cell "PnL:FY2026-27,Budget,FY,Gro
 Each report line is rounded to whole dollars on its own, so a subtotal can sit a
 dollar away from the lines above it. `calculate` prints the unrounded figure.
 
+The offline CSV loader refuses conflicting values for the same cell and names
+both rows. Repeated rows with equal decimal values remain valid, including when
+element names differ only in case or surrounding whitespace.
+
 ## Exit codes
 
 | Code | Meaning |
