@@ -498,6 +498,35 @@ def test_conflicting_rows_are_a_usage_error_without_calculated_output(tmp_path):
     assert "sales.csv" in err and "row 2" in err and "row 3" in err
 
 
+@pytest.mark.parametrize("arguments", [
+    BUDGET_REPORT,
+    ("calculate", MODEL, "--data", EXAMPLES,
+     "--cell", GROUP_EBITDA, "--cell", GROUP_EBITDA),
+])
+def test_output_cells_share_input_reads_within_one_command(monkeypatch, arguments):
+    from collections import Counter
+    from pacioliscube.evaluate import CellStore
+
+    reads = Counter()
+    original_get = CellStore.get
+    original_evaluate = cli._evaluate
+
+    def counted_get(store, cube, coordinate):
+        reads[(cube, coordinate)] += 1
+        return original_get(store, cube, coordinate)
+
+    def evaluate_then_count(model, store):
+        calculated = original_evaluate(model, store)
+        reads.clear()
+        return calculated
+
+    monkeypatch.setattr(CellStore, "get", counted_get)
+    monkeypatch.setattr(cli, "_evaluate", evaluate_then_count)
+    code, out, err = run_once(*arguments)
+    assert code == 0 and out and not err
+    assert reads and max(reads.values()) == 1
+
+
 def test_a_csv_matching_no_cube_is_a_usage_error(tmp_path):
     data = tmp_path / "data"
     data.mkdir()
@@ -543,8 +572,12 @@ def test_a_model_fault_found_while_consolidating_returns_two(tmp_path):
     root = build_model(tmp_path / "model", rules=AMBIGUOUS_AREA_RULES)
     data = build_data(tmp_path / "data")
     assert run("validate", root)[0] == 0
-    code, _out, err = run("calculate", root, "--data", data, "--cell", "Sales:Total,Amount")
+    code, out, err = run(
+        "calculate", root, "--data", data,
+        "--cell", "Sales:Red,Units", "--cell", "Sales:Total,Amount",
+    )
     assert code == 2
+    assert out == "Sales:Red,Units = 10\n"
     assert "area names two elements of dimension 'Colour'" in err
 
 

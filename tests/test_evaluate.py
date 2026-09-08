@@ -178,6 +178,24 @@ def test_a_c_rule_overrides_consolidation(tmp_path):
     assert consolidate(model, result, "Sales", ("Total", "Price")) == Decimal("99")
 
 
+def test_batch_consolidation_preserves_order_weights_and_fresh_inputs():
+    from pacioliscube.evaluate import consolidate_many
+
+    model, store = loaded_store(
+        Sales__Red__Units="10", Sales__Red__Price="2",
+        Sales__Blue__Units="5", Sales__Blue__Price="3",
+        Sales__Contra__Units="4", Sales__Contra__Price="1",
+    )
+    cells = [("Sales", ("Total", "Amount")), ("Sales", ("Red", "Amount"))]
+    other_colours = Decimal("5") * Decimal("3") - Decimal("4") * Decimal("1")
+    red = Decimal("10") * Decimal("2")
+    assert list(consolidate_many(model, store, cells)) == [red + other_colours, red]
+    store.set("Sales", ("Red", "Price"), Decimal("4"))
+    red = Decimal("10") * Decimal("4")
+    assert list(consolidate_many(model, store, cells)) == [red + other_colours, red]
+    assert list(consolidate_many(model, store, [])) == []
+
+
 def build_model(root: Path, rules_text: str):
     """Write a two dimension Sales cube with the given rules and return it loaded."""
     (root / "dimensions").mkdir(parents=True, exist_ok=True)
