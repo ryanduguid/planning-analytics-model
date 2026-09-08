@@ -154,6 +154,11 @@ a reviewer can follow the arithmetic without trusting the engine:
 
 Breaking any of those in the model source turns the suite red.
 
+[Native TM1 comparison](docs/native-comparison.md) defines eight synthetic cells,
+their independent expected values and the evidence to retain. Native comparison
+is pending because no TM1 server was available; passing offline tests does not
+establish agreement with a native server.
+
 ## What it does not do
 
 - It is not tax advice, and it is not a payroll or lodgement engine. The
