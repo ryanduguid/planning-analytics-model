@@ -489,6 +489,15 @@ def test_two_data_files_feeding_one_cube_are_a_usage_error(tmp_path):
     assert "pnl-direct.csv" in err
 
 
+def test_conflicting_rows_are_a_usage_error_without_calculated_output(tmp_path):
+    root = build_model(tmp_path / "model")
+    data = build_data(tmp_path / "data", body="Red,Units,10\nred,units,20\n")
+    code, out, err = run_once("calculate", root, "--data", data, "--cell", "Sales:Red,Units")
+    assert code == 1
+    assert out == ""
+    assert "sales.csv" in err and "row 2" in err and "row 3" in err
+
+
 def test_a_csv_matching_no_cube_is_a_usage_error(tmp_path):
     data = tmp_path / "data"
     data.mkdir()

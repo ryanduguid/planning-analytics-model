@@ -34,6 +34,31 @@ def test_element_matching_is_case_insensitive_and_canonicalised(tmp_path):
     assert coordinate == ("FY2026-27", "Budget", "Full Year", "SG Rate")
 
 
+@pytest.mark.parametrize("second", [
+    "FY2026-27,Budget,Full Year,SG Rate,0.13",
+    " fy2026-27 ,BUDGET,full year,sg rate,0.13",
+])
+def test_conflicting_rows_name_the_file_and_both_row_numbers(tmp_path, second):
+    path = write(tmp_path, "FY2026-27,Budget,Full Year,SG Rate,0.12\n\n" + second + "\n")
+    store = CellStore()
+    with pytest.raises(ModelError) as caught:
+        load_into_store(MODEL, "Drivers", path, store)
+    message = str(caught.value)
+    assert str(path) in message
+    assert "row 4" in message and "row 2" in message
+    assert "conflicting" in message and "SG Rate" in message
+    assert store.get("Drivers", ("FY2026-27", "Budget", "Full Year", "SG Rate")) == Decimal("0.12")
+
+
+def test_repeated_rows_with_equal_decimal_values_remain_valid(tmp_path):
+    path = write(tmp_path,
+        "FY2026-27,Budget,Full Year,SG Rate,0.12\n"
+        "fy2026-27,budget,full year,sg rate,0.120\n")
+    rows = list(load_csv(path, DRIVERS, MODEL))
+    assert len(rows) == 2
+    assert rows[0] == rows[1]
+
+
 def test_an_unknown_element_is_a_model_error_naming_the_row(tmp_path):
     path = write(tmp_path, "FY2026-27,Budget,Full Year,SG Rate,0.12\nFY2026-27,Budget,Full Year,Ghost,1\n")
     with pytest.raises(ModelError) as caught:
