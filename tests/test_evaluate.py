@@ -10,6 +10,7 @@ from pacioliscube.evaluate import (
     CircularReference,
     EvaluationError,
     consolidate,
+    consolidate_many,
     evaluate,
 )
 from pacioliscube.model import ModelError, load_model
@@ -164,6 +165,22 @@ def test_consolidation_leaves_a_leaf_coordinate_alone():
     model, store = loaded_store(Sales__Red__Units="7", Sales__Red__Price="1")
     result = evaluate(model, store)
     assert consolidate(model, result, "Sales", ("Red", "Amount")) == Decimal("7")
+
+
+@pytest.mark.parametrize("coordinate", [(), ("Red",), ("Red", "Units", "unexpected")])
+@pytest.mark.parametrize("batch", [False, True])
+def test_consolidation_rejects_incorrect_coordinate_width(coordinate, batch):
+    model, store = loaded_store(Sales__Red__Units="3")
+    if batch:
+        values = consolidate_many(
+            model, store, [("Sales", ("Red", "Units")), ("Sales", coordinate)],
+        )
+        assert next(values) == Decimal("3")
+        with pytest.raises(ModelError, match="coordinate.*dimensions"):
+            next(values)
+    else:
+        with pytest.raises(ModelError, match="coordinate.*dimensions"):
+            consolidate(model, store, "Sales", coordinate)
 
 
 def test_a_c_rule_overrides_consolidation(tmp_path):

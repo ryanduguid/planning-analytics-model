@@ -164,6 +164,11 @@ class _Engine:
         cube = self.model.cubes.get(cube_name)
         if cube is None:
             raise ModelError(f"no cube named {cube_name!r} in model {self.model.name!r}")
+        if len(coordinate) != len(cube.dimensions):
+            raise ModelError(
+                f"coordinate has {len(coordinate)} elements; "
+                f"cube {cube.name!r} has {len(cube.dimensions)} dimensions"
+            )
         canonical = tuple(
             self.model.hierarchy(dimension).resolve(element)
             for dimension, element in zip(cube.dimensions, coordinate)
