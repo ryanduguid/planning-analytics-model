@@ -1,4 +1,4 @@
-# planning-analytics-model
+# IBM Planning Analytics budget model with an offline rule evaluator
 
 ```
 +----------------------------------------------------------------------+
