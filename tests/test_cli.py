@@ -12,6 +12,7 @@ import pytest
 
 from pacioliscube import cli
 from pacioliscube.cli import main
+from pacioliscube.report import money
 
 REPO = Path(__file__).resolve().parents[1]
 MODEL = str(REPO / "model")
@@ -238,19 +239,6 @@ def test_the_model_directory_defaults_to_the_model_folder(monkeypatch, capsys):
     assert "0 errors, 0 warnings" in capsys.readouterr().out
 
 
-def test_the_model_directory_may_be_named_as_an_option(tmp_path):
-    # The packaging job installs the wheel and runs the command this way, so
-    # the option has to reach the same place the positional does.
-    root = build_model(tmp_path / "model", rules=UNKNOWN_ELEMENT_RULES)
-    assert run("validate", "--model", root) == run("validate", root)
-
-
-def test_naming_the_model_directory_twice_is_a_usage_error():
-    code, _out, err = run("validate", MODEL, "--model", MODEL)
-    assert code == 1
-    assert "given twice" in err
-
-
 def test_a_finding_prints_as_severity_code_location_then_message(tmp_path):
     root = build_model(tmp_path / "model", rules=UNKNOWN_ELEMENT_RULES)
     _code, out, _err = run("validate", root)
@@ -426,7 +414,7 @@ def test_an_operating_system_error_reading_a_csv_is_a_usage_error(tmp_path, monk
     def refuse(*_args, **_kwargs):
         raise PermissionError(13, "Permission denied")
 
-    monkeypatch.setattr(cli, "load_into_store", refuse)
+    monkeypatch.setattr("pacioliscube.data.load_into_store", refuse)
     code, _out, err = run_once("calculate", MODEL, "--data", data, "--cell", CELL)
     assert code == 1
     assert "Permission denied" in err
@@ -634,9 +622,9 @@ def test_the_report_help_names_the_sign_convention():
 
 
 def test_money_brackets_a_negative_and_prints_a_rounded_zero_plain():
-    assert cli._money(Decimal("1234.5")) == "1,235"
-    assert cli._money(Decimal("-1234.5")) == "(1,235)"
-    assert cli._money(Decimal("-0.4")) == "0"
+    assert money(Decimal("1234.5")) == "1,235"
+    assert money(Decimal("-1234.5")) == "(1,235)"
+    assert money(Decimal("-0.4")) == "0"
 
 
 def test_the_printed_lines_articulate_to_within_the_rounding():

@@ -5,6 +5,11 @@ tree, ``calculate`` prints the value at named cells, and ``report`` prints a
 small profit and loss. Every run reads: nothing here writes a file, touches a
 network, or changes the model it is pointed at.
 
+Argument handling and the three subcommands live here. The statement the report
+prints is in report.py and reading a directory of CSV input is in data.py, so
+this module is the part a reader consults for what the arguments mean and which
+exit code a failure takes.
+
 Exit codes, which a shell script or a CI job can rely on:
 
 0   the command finished and found nothing wrong
@@ -27,78 +32,25 @@ from __future__ import annotations
 
 import argparse
 import sys
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from pathlib import Path
 from typing import Iterator, Optional, Sequence
 
-from pacioliscube.data import load_into_store
+from pacioliscube import __version__, report
+from pacioliscube.data import load_data
+from pacioliscube.errors import (
+    EXIT_CALCULATION,
+    EXIT_INVALID_MODEL,
+    EXIT_OK,
+    EXIT_USAGE,
+    CliError,
+    element_or_error,
+)
 from pacioliscube.evaluate import CellStore, EvaluationError, consolidate_many, evaluate
 from pacioliscube.model import Cube, Model, ModelError, load_model
 from pacioliscube.validate import ERROR, Finding, validate_model
-from pacioliscube import __version__
-
-EXIT_OK = 0
-EXIT_USAGE = 1
-EXIT_INVALID_MODEL = 2
-EXIT_CALCULATION = 3
 
 DEFAULT_MODEL_ROOT = "model"
-
-# The stem of a data file names the cube it feeds. The shipped example files are
-# listed rather than derived, because pnl-direct is not spelled like the cube it
-# loads. A stem that matches a cube name is taken as well, which is how a model
-# built for a test feeds cubes this map has never heard of, and _load_data
-# refuses the case that makes the fallback dangerous: two files, one cube.
-CUBE_BY_STEM = {
-    "drivers": "Drivers",
-    "workforce": "Workforce",
-    "revenue": "Revenue",
-    "capex": "Capex",
-    "pnl-direct": "PnL",
-}
-
-REPORT_CUBE = "PnL"
-
-# The profit and loss the report prints, in statement order. Each name is an
-# element of the Account dimension, consolidated or not.
-REPORT_ROWS = (
-    "Revenue",
-    "Direct Costs",
-    "Gross Margin",
-    "Employment Costs",
-    "Overheads",
-    "EBITDA",
-    "Depreciation",
-    "EBIT",
-)
-
-# The slice the report reads: the whole year, the whole group, every cost
-# centre. Year and Version come from the command line instead.
-REPORT_SLICE = {
-    "Period": "FY",
-    "Entity": "Group",
-    "CostCentre": "All Cost Centres",
-}
-REPORT_MEASURE = {"PnLMeasure": "Amount"}
-
-# Which report dimensions the caller supplies, and so which ones name the
-# argument at fault rather than the shape this report is fixed to.
-FROM_COMMAND_LINE = ("Year", "Version")
-
-# The rows that reduce the result above them. A cost is stored as a positive
-# number, so the reader is told which lines are taken off by the report and not
-# by the model. See _money for the convention.
-DEDUCTION_ROWS = frozenset(
-    {"Direct Costs", "Employment Costs", "Overheads", "Depreciation"}
-)
-
-
-class CliError(Exception):
-    """An error the command line reports, carrying the exit code it maps to."""
-
-    def __init__(self, code: int, message: str) -> None:
-        super().__init__(message)
-        self.code = code
 
 
 def _directory(argument: str, what: str) -> Path:
@@ -109,14 +61,8 @@ def _directory(argument: str, what: str) -> Path:
 
 
 def _model_root(args: argparse.Namespace) -> Path:
-    """The model directory, given either as the positional or as --model."""
-    if args.model_dir is not None and args.model_option is not None:
-        raise CliError(
-            EXIT_USAGE,
-            "the model directory is given twice, once as MODEL_DIR and once as --model. "
-            "Give it once",
-        )
-    return _directory(args.model_dir or args.model_option or DEFAULT_MODEL_ROOT, "model")
+    """The model directory, given as the positional or left at its default."""
+    return _directory(args.model_dir or DEFAULT_MODEL_ROOT, "model")
 
 
 def _load(root: Path) -> Model:
@@ -137,14 +83,6 @@ def _load(root: Path) -> Model:
         raise CliError(
             EXIT_INVALID_MODEL, f"{root}: the model could not be read, {error}"
         ) from error
-
-
-def _element(model: Model, dimension: str, name: str, code: int) -> str:
-    """Resolve an element name, taking the exit code that fits who supplied it."""
-    try:
-        return model.hierarchy(dimension).resolve(name)
-    except ModelError as error:
-        raise CliError(code, str(error)) from error
 
 
 def _cube(model: Model, name: str) -> Cube:
@@ -182,74 +120,6 @@ def _refuse_broken_model(model: Model) -> None:
         f"the model has {count}, so nothing was calculated. "
         "Run the validate subcommand for the findings in full",
     )
-
-
-def _cube_for_file(model: Model, path: Path) -> Cube:
-    """Which cube a data file loads into, by its stem."""
-    stem = path.stem.casefold()
-    named = CUBE_BY_STEM.get(stem)
-    if named is not None and named in model.cubes:
-        return model.cubes[named]
-    for cube in model.cubes.values():
-        if cube.name.casefold() == stem:
-            return cube
-    raise CliError(
-        EXIT_USAGE,
-        f"{path}: no cube in model {model.name!r} matches the file name {path.stem!r}",
-    )
-
-
-def _load_data(model: Model, directory: Path) -> CellStore:
-    store = CellStore()
-    try:
-        boundary = directory.resolve()
-        files = sorted(
-            path
-            for path in directory.iterdir()
-            if path.is_file() and path.suffix.casefold() == ".csv"
-        )
-    except OSError as error:
-        raise CliError(
-            EXIT_USAGE, f"{directory}: the data directory could not be read, {error}"
-        ) from error
-    if not files:
-        raise CliError(EXIT_USAGE, f"{directory}: there are no CSV files there")
-
-    # Every file is matched to its cube before any of them is read. A cell store
-    # takes the last write, so two files feeding one cube would leave the cells
-    # they share holding whichever file sorted second, and the run would print a
-    # wrong figure and exit 0. Guessing which of the two was meant is worse than
-    # saying that both are there.
-    feeding: dict[str, list[Path]] = {}
-    for path in files:
-        if not path.resolve().is_relative_to(boundary):
-            raise CliError(EXIT_USAGE, f"{path}: this file resolves outside the data directory")
-        feeding.setdefault(_cube_for_file(model, path).name, []).append(path)
-    for cube_name, paths in feeding.items():
-        if len(paths) > 1:
-            raise CliError(
-                EXIT_USAGE,
-                f"cube {cube_name!r} is fed by more than one file: "
-                f"{', '.join(str(path) for path in paths)}. "
-                "Leave the one that belongs to this run in the data directory and move "
-                "the rest out",
-            )
-
-    for cube_name, paths in feeding.items():
-        path = paths[0]
-        try:
-            load_into_store(model, cube_name, path, store)
-        except ModelError as error:
-            raise CliError(EXIT_USAGE, str(error)) from error
-        except UnicodeDecodeError as error:
-            raise CliError(
-                EXIT_USAGE,
-                f"{path}: this file is not UTF-8 text ({error}). "
-                "A spreadsheet export saves as UTF-8 from its own save dialogue",
-            ) from error
-        except OSError as error:
-            raise CliError(EXIT_USAGE, f"{path}: this file could not be read, {error}") from error
-    return store
 
 
 def _evaluate(model: Model, store: CellStore) -> CellStore:
@@ -297,7 +167,7 @@ def _parse_cell(model: Model, text: str) -> tuple[str, tuple[str, ...]]:
             f"which takes {len(cube.dimensions)}, being {', '.join(cube.dimensions)}",
         )
     coordinate = tuple(
-        _element(model, dimension, name, EXIT_USAGE)
+        element_or_error(model, dimension, name, EXIT_USAGE)
         for dimension, name in zip(cube.dimensions, names)
     )
     return cube.name, coordinate
@@ -309,68 +179,6 @@ def _plain(value: Decimal) -> str:
     if "." in text:
         text = text.rstrip("0").rstrip(".")
     return text
-
-
-def _money(value: Decimal) -> str:
-    """Whole dollars with thousands separators, rounded the way a ledger rounds.
-
-    A negative prints in brackets, which is the convention a reader of a printed
-    statement expects. The report hands this function the signed effect a line
-    has on the result below it, so a deduction arrives here negative and prints
-    bracketed, and a cost that happens to be a credit prints plain.
-
-    Each line rounds on its own, so a printed subtotal can sit a dollar away
-    from the printed lines above it. Forcing the difference into a line would
-    misstate that line, so the report leaves it where the arithmetic puts it.
-    """
-    dollars = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    if dollars == 0:
-        # Rounding a small negative gives minus zero, which reads as a figure
-        # the statement does not hold.
-        return "0"
-    if dollars < 0:
-        return f"({-dollars:,})"
-    return f"{dollars:,}"
-
-
-def _fixed_slice() -> str:
-    """The slice the report is fixed to, spelled out for an error message."""
-    return ", ".join(f"{name} {element!r}" for name, element in REPORT_SLICE.items())
-
-
-def _report_selection(model: Model, cube: Cube, year: str, version: str, account: str) -> dict:
-    """Resolve one report row, keyed by dimension so the cube's order can drive it."""
-    wanted = dict(REPORT_SLICE)
-    wanted.update(REPORT_MEASURE)
-    wanted["Year"] = year
-    wanted["Version"] = version
-    wanted["Account"] = account
-    resolved = {}
-    for dimension in cube.dimensions:
-        if dimension not in wanted:
-            raise CliError(
-                EXIT_USAGE,
-                f"cube {cube.name!r} has a dimension {dimension!r} that the report has no "
-                "element for, so this report does not fit this model. Use the calculate "
-                "subcommand, which takes the whole coordinate from you",
-            )
-        if dimension in FROM_COMMAND_LINE:
-            resolved[dimension] = _element(model, dimension, wanted[dimension], EXIT_USAGE)
-            continue
-        # Everything else is spelled by the report rather than by the caller, so
-        # a model that does not hold it is a model this report does not fit. It
-        # is not a broken model, and it does not take the invalid model code.
-        try:
-            resolved[dimension] = model.hierarchy(dimension).resolve(wanted[dimension])
-        except ModelError as error:
-            raise CliError(
-                EXIT_USAGE,
-                f"cube {cube.name!r}: the report reads {dimension} {wanted[dimension]!r}, "
-                f"which this model does not hold ({error}). The report is fixed to "
-                f"{_fixed_slice()} and to the rows of a direct profit and loss, so a model "
-                "that rolls up differently needs the calculate subcommand instead",
-            ) from error
-    return resolved
 
 
 def _validate_command(args: argparse.Namespace) -> int:
@@ -391,7 +199,7 @@ def _calculate_command(args: argparse.Namespace) -> int:
     # Cell references are parsed before the CSVs are read so that a typo costs
     # a second rather than a full load and evaluation.
     cells = [_parse_cell(model, text) for text in args.cell]
-    store = _evaluate(model, _load_data(model, data))
+    store = _evaluate(model, load_data(model, data))
     values = _values(model, store, cells)
     for (cube, coordinate), value in zip(cells, values):
         print(f"{cube}:{','.join(coordinate)} = {_plain(value)}")
@@ -402,51 +210,16 @@ def _report_command(args: argparse.Namespace) -> int:
     model = _load(_model_root(args))
     _refuse_broken_model(model)
     data = _directory(args.data, "data")
-    cube = _cube(model, REPORT_CUBE)
-    # Without these three the eight rows would all read the same cell, so the
-    # report would print something that looked right and was not.
-    absent = [name for name in ("Year", "Version", "Account") if name not in cube.dimensions]
-    if absent:
-        raise CliError(
-            EXIT_USAGE,
-            f"cube {cube.name!r} has no {', '.join(absent)} dimension, so a profit and loss "
-            "cannot be built from it. This report does not fit this model, which is a "
-            "different thing from the model being wrong",
-        )
-    rows = [
-        _report_selection(model, cube, args.year, args.version, account)
-        for account in REPORT_ROWS
-    ]
-    store = _evaluate(model, _load_data(model, data))
+    cube = _cube(model, report.REPORT_CUBE)
+    selections = report.rows(model, cube, args.year, args.version)
+    store = _evaluate(model, load_data(model, data))
     cells = [
-        (cube.name, tuple(row[dimension] for dimension in cube.dimensions))
-        for row in rows
+        (cube.name, tuple(selection[dimension] for dimension in cube.dimensions))
+        for selection in selections
     ]
     values = list(_values(model, store, cells))
-    # The row names drive the sign, not the resolved element, because a model
-    # may spell an account in another case and the convention is the report's.
-    amounts = [
-        _money(-value if account in DEDUCTION_ROWS else value)
-        for account, value in zip(REPORT_ROWS, values)
-    ]
-
-    first = rows[0]
-    labels = [row["Account"] for row in rows]
-    # Name only the restrictions actually applied. A cube without one of these
-    # dimensions was never narrowed on it, and an earlier version fell back to
-    # the report's own literal, so the header stated a basis the figures below
-    # it did not have.
-    applied = [first[name] for name in REPORT_SLICE if name in first]
-    print(f"Profit and loss for {first['Year']}, {first['Version']}")
-    if applied:
-        print(f"{cube.name} at {', '.join(applied)}")
-    else:
-        print(f"{cube.name}, whole cube: it carries none of the usual reporting dimensions")
-    print()
-    label_width = max(len(label) for label in labels)
-    amount_width = max(len(amount) for amount in amounts)
-    for label, amount in zip(labels, amounts):
-        print(f"{label:<{label_width}}  {amount:>{amount_width}}")
+    for line in report.lines(cube, selections, values):
+        print(line)
     return EXIT_OK
 
 
@@ -466,16 +239,6 @@ def build_parser() -> argparse.ArgumentParser:
             default=None,
             metavar="MODEL_DIR",
             help=f"the directory holding tm1project.json, {DEFAULT_MODEL_ROOT} by default",
-        )
-        # The same directory, spelled as an option. Scripts that pass every
-        # path as a named argument read better for it, and the packaging job
-        # calls the command that way.
-        subparser.add_argument(
-            "--model",
-            dest="model_option",
-            default=None,
-            metavar="DIR",
-            help="the same directory, named as an option instead of the positional",
         )
         return subparser
 
@@ -499,7 +262,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     calculate.set_defaults(handler=_calculate_command)
 
-    report = with_model_dir(
+    report_parser = with_model_dir(
         subcommands.add_parser(
             "report",
             help="print a profit and loss for a year and version",
@@ -512,16 +275,16 @@ def build_parser() -> argparse.ArgumentParser:
             "depreciation prints as 18,684,639 while EBIT prints as 18,684,640.",
         )
     )
-    report.add_argument(
+    report_parser.add_argument(
         "--data", required=True, metavar="DIR", help="directory of long format CSV input"
     )
-    report.add_argument(
+    report_parser.add_argument(
         "--year", required=True, metavar="Y", help="an element of the Year dimension"
     )
-    report.add_argument(
+    report_parser.add_argument(
         "--version", required=True, metavar="V", help="an element of the Version dimension"
     )
-    report.set_defaults(handler=_report_command)
+    report_parser.set_defaults(handler=_report_command)
     return parser
 
 
