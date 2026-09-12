@@ -2,9 +2,9 @@
 # These patterns block the file names real ledgers and payroll exports arrive under.
 # Character classes are used on extensions because git only folds extension case
 # when core.ignorecase is set, which is not the case on every contributor's box.
-pnl*.csv
-trial-balance*.csv
-payroll*.csv
+[pP][nN][lL]*.[cC][sS][vV]
+[tT][rR][iI][aA][lL]-[bB][aA][lL][aA][nN][cC][eE]*.[cC][sS][vV]
+[pP][aA][yY][rR][oO][lL][lL]*.[cC][sS][vV]
 client-data/
 clients/
 ledgers/

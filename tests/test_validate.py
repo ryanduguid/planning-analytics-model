@@ -1,6 +1,7 @@
 """Structural validation findings, one test per check."""
 
 from pathlib import Path
+import json
 
 import pytest
 
@@ -19,6 +20,7 @@ def build_model(
     extra_files: dict | None = None,
     manifest_cubes: str = '"cubes/Sales.json"',
     processes: str = "",
+    parameters: tuple[dict, ...] = (),
 ):
     """Write the smallest model that can carry the defect under test."""
     (root / "dimensions").mkdir(parents=True, exist_ok=True)
@@ -59,7 +61,7 @@ def build_model(
     if processes:
         (root / "processes").mkdir(exist_ok=True)
         (root / "processes" / "Load.json").write_text(
-            '{"Name": "Load", "Parameters": [], "DataSource": {}, "Code@Code.link": "Load.ti"}',
+            json.dumps({"Name": "Load", "Parameters": parameters, "DataSource": {}, "Code@Code.link": "Load.ti"}),
             encoding="utf-8",
         )
         (root / "processes" / "Load.ti").write_text(processes, encoding="utf-8")
@@ -296,7 +298,8 @@ def test_prc001_a_script_using_an_undeclared_parameter(tmp_path):
 
 
 def test_a_declared_parameter_is_not_reported(tmp_path):
-    model = build_model(tmp_path, processes="sVersion = 'Budget';\n")
+    model = build_model(tmp_path, processes="sVersion = pVersion;\n",
+                        parameters=({"Name": "pVersion", "Type": "String", "Value": "Budget"},))
     assert "PRC001" not in codes(model)
 
 

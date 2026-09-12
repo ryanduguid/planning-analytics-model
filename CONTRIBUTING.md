@@ -7,8 +7,8 @@ lands, and a change that alters a calculated number needs to show its working.
 
 This repository must never carry real data. No client, taxpayer, employee or
 payroll records, no credentials, no tokens, no organisation names from a live
-engagement. Everything under `examples/` is invented, and every figure in it is
-round and obviously fictional for that reason.
+engagement. Business data under `examples/` is invented. Statutory rates and
+thresholds use the dated primary sources in `docs/model-assumptions.md`.
 
 The `.gitignore` blocks the file names real ledgers and payroll exports arrive
 under. It is a safety net, not permission to try. If you need a new fixture,

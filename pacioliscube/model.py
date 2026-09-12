@@ -204,6 +204,8 @@ def _load_hierarchy(path: Path, dimension_name: str) -> Hierarchy:
         raise ModelError(f"{path}: hierarchy has no Name")
     elements = []
     for entry in payload.get("Elements", ()):
+        if not isinstance(entry, dict):
+            raise ModelError(f"{path}: an element is {type(entry).__name__}, expected an object")
         element_name = entry.get("Name")
         if not element_name:
             raise ModelError(f"{path}: an element has no Name")
@@ -216,6 +218,8 @@ def _load_hierarchy(path: Path, dimension_name: str) -> Hierarchy:
         elements.append(Element(element_name, element_type))
     edges = []
     for entry in payload.get("Edges", ()):
+        if not isinstance(entry, dict):
+            raise ModelError(f"{path}: an edge is {type(entry).__name__}, expected an object")
         parent = entry.get("ParentName")
         component = entry.get("ComponentName")
         if not parent or not component:

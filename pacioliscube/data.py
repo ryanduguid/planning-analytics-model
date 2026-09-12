@@ -48,7 +48,13 @@ def load_csv(path: Path, cube: Cube, model: Model) -> Iterator[tuple[Coordinate,
                 dimension = cube.dimensions[position]
                 element = field.strip()
                 try:
-                    coordinate.append(model.hierarchy(dimension).resolve(element))
+                    hierarchy = model.hierarchy(dimension)
+                    canonical = hierarchy.resolve(element)
+                    if not hierarchy.is_leaf(canonical):
+                        raise ModelError(
+                            f"{dimension}: element {canonical!r} is consolidated and cannot hold input"
+                        )
+                    coordinate.append(canonical)
                 except ModelError as error:
                     raise ModelError(f"{path} row {number}: {error}") from None
             text = row[-1].strip()
@@ -69,7 +75,9 @@ def load_csv(path: Path, cube: Cube, model: Model) -> Iterator[tuple[Coordinate,
                     f"{path} row {number}: conflicting value for {cube.name!r} "
                     f"at {list(cell)}; first supplied on row {previous[1]}"
                 )
-            seen.setdefault(cell, (value, number))
+            if previous is not None:
+                continue
+            seen[cell] = (value, number)
             yield cell, value
 
 

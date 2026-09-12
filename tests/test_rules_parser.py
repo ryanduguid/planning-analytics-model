@@ -28,6 +28,18 @@ def test_skipcheck_is_detected():
     assert load().skipcheck is True
 
 
+def test_doubled_quotes_decode_as_one_apostrophe_in_names():
+    rule = parse_rules("['O''Brien'] = N: DB('Owner''s cube', 'O''Brien');", INLINE).rules[0]
+    assert rule.area.selectors == (("O'Brien",),)
+    assert rule.expression == CellRef("Owner's cube", ("O'Brien",))
+
+
+@pytest.mark.parametrize("text", ["['O''Brien] = N: 1;", "['O''\nBrien'] = N: 1;"])
+def test_escaped_quotes_still_require_a_closing_quote_on_the_same_line(text):
+    with pytest.raises(RuleSyntaxError, match="unterminated quoted name"):
+        parse_rules(text, INLINE)
+
+
 def test_a_file_without_skipcheck_says_so():
     assert parse_rules("['A'] = N: 1;", INLINE).skipcheck is False
 

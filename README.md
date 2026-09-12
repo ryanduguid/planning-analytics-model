@@ -42,8 +42,8 @@ model on every push and fails if a figure moves.
   which is what the Planning Analytics Git integration reads and writes.
 - `pacioliscube/` is the engine: a rule parser, a structural validator, a cell
   store with weighted consolidation, a CSV loader and a command line.
-- `examples/` is invented input data. Every entity, rate and volume in it is
-  fictional.
+- `examples/` contains fictional entities, commercial rates and volumes, plus
+  dated statutory rates and thresholds cited in `docs/model-assumptions.md`.
 - `docs/model-assumptions.md` traces every statutory figure to its source, and
   says for each one whether it was read from the legislation or confirmed
   against the administering authority's own page.
@@ -174,8 +174,8 @@ establish agreement with a native server.
 ## Client data
 
 No real data belongs in this repository. The `.gitignore` blocks the file names
-ledgers and payroll exports arrive under, and everything in `examples/` is
-invented. See [CONTRIBUTING.md](CONTRIBUTING.md).
+ledgers and payroll exports arrive under. The examples combine invented business
+data with dated, sourced statutory figures. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Releases
 

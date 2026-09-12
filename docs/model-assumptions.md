@@ -11,9 +11,10 @@ entities, CivilCo (civil earthworks) and HaulCo (haulage), roll up to a `Group`
 consolidation. The financial year ends 30 June. Two years are held: FY2025-26 as
 `Actual` and FY2026-27 as `Budget`. Amounts are Australian dollars.
 
-Every entity, cost centre, role, rate and volume in `examples/` is invented. No
-real employer, client or person is referenced, and no client data was used to
-build or test the model.
+Entities, cost centres, roles, commercial rates and volumes in `examples/` are
+invented. Statutory rates and thresholds use the dated primary sources below.
+No real employer, client or person is referenced, and no client data was used
+to build or test the model.
 
 ## What the model is not
 
