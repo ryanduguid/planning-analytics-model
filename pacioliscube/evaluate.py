@@ -238,8 +238,8 @@ class _Engine:
             if self.evaluate_condition(expression.condition, cube, coordinate):
                 return self.evaluate_expression(expression.then_expr, cube, coordinate)
             return self.evaluate_expression(expression.else_expr, cube, coordinate)
-        if isinstance(expression, Comparison):
-            return Decimal("1") if self.evaluate_condition(expression, cube, coordinate) else ZERO
+        # A Comparison only ever reaches evaluate_condition, because the grammar
+        # produces one inside an IF and nowhere else.
         raise EvaluationError(f"unsupported expression node {type(expression).__name__}")
 
     def evaluate_condition(self, condition: Comparison, cube: Cube, coordinate: Coordinate) -> bool:

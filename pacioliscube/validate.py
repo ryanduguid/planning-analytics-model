@@ -18,10 +18,6 @@ from pacioliscube.rules import Area, CellRef, Expr, IfExpr, BinaryOp, Comparison
 ERROR = "error"
 WARNING = "warning"
 
-# Files that are part of the repository rather than the model, so their absence
-# from the manifest is not a finding.
-UNLISTED_FILE_ALLOWANCES = (".gitkeep", ".gitattributes", "README.md")
-
 # TurboIntegrator names a parameter p followed by a capital, as in pYear.
 # Requiring the capital keeps ordinary words like "per" out of the match.
 _PARAMETER_PATTERN = re.compile(r"\bp[A-Z][A-Za-z0-9_]*\b")
@@ -313,8 +309,6 @@ def _validate_manifest(model: Model) -> list[Finding]:
     listed = {path.resolve() for path in model.files}
     for path in sorted(model.root.rglob("*")):
         if not path.is_file():
-            continue
-        if path.name in UNLISTED_FILE_ALLOWANCES:
             continue
         if path.resolve() not in listed:
             findings.append(

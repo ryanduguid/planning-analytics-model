@@ -34,7 +34,6 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import NamedTuple, Optional, Union
 
-KEYWORDS = {"DB", "IF", "SKIPCHECK", "FEEDERS", "UNDEFVALS", "FEEDSTRINGS"}
 COMPARISONS = {"=", "<", ">", "<=", ">=", "<>"}
 
 
