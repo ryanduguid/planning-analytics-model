@@ -17,6 +17,7 @@
 The PaciolisCube budget model. This repository was named PaciolisCube until September 2026; the old URL redirects.
 
 [![tests](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=5C2D91&labelColor=04001F)](https://pypi.org/project/pacioliscube/)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-5C2D91.svg?labelColor=04001F)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-5C2D91.svg?labelColor=04001F)](https://www.python.org/)
 

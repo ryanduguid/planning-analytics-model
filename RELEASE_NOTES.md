@@ -1,3 +1,8 @@
+# v0.1.2
+
+- Publishes the attested wheel and source distribution to PyPI as `pacioliscube` through trusted publishing.
+- No functional change since v0.1.1.
+
 # v0.1.1
 
 - The repository was renamed from PaciolisCube to planning-analytics-model, and the README now says the package is installed from source rather than from PyPI.
