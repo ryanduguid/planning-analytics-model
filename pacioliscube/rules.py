@@ -123,12 +123,18 @@ def _tokenise(text: str, path: Path) -> list[Token]:
                 index += 1
             continue
         if character == "'":
-            end = text.find("'", index + 1)
-            if end == -1:
-                raise RuleSyntaxError(f"{path} line {line}: unterminated quoted name")
-            if "\n" in text[index:end]:
-                raise RuleSyntaxError(f"{path} line {line}: unterminated quoted name")
-            tokens.append(Token("string", text[index + 1:end], line))
+            cursor = index + 1
+            parts: list[str] = []
+            while True:
+                end = text.find("'", cursor)
+                if end == -1 or "\n" in text[cursor:end]:
+                    raise RuleSyntaxError(f"{path} line {line}: unterminated quoted name")
+                parts.append(text[cursor:end])
+                if not text.startswith("''", end):
+                    break
+                parts.append("'")
+                cursor = end + 2
+            tokens.append(Token("string", "".join(parts), line))
             index = end + 1
             continue
         if character.isdigit() or (

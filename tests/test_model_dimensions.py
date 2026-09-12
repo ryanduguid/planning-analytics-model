@@ -37,6 +37,16 @@ def test_loads_elements_and_edges():
     assert hierarchy.is_leaf("Total") is False
 
 
+@pytest.mark.parametrize("invalid", ["null", "12", '"name"', "[]"])
+@pytest.mark.parametrize("collection", ["Elements", "Edges"])
+def test_hierarchy_entries_must_be_objects(tmp_path, invalid, collection):
+    path = write_dimension(tmp_path, "Test", invalid if collection == "Elements" else "",
+                           invalid if collection == "Edges" else "")
+    with pytest.raises(ModelError, match="expected an object") as caught:
+        load_dimension(path)
+    assert "Test.hierarchies" in str(caught.value)
+
+
 def test_edge_weights_are_decimal_and_signed():
     hierarchy = load_dimension(COLOUR).default_hierarchy
     weights = {edge.component: edge.weight for edge in hierarchy.children("Total")}

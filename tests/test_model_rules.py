@@ -151,12 +151,20 @@ def test_every_month_of_depreciation_is_fed_by_name():
 def test_the_reporting_cube_is_fed_from_its_source_cubes():
     model = load_model(MODEL_ROOT)
     cross = [
-        feeder
+        (name, feeder.target.selectors[-2][0])
         for name in ("Workforce", "Revenue", "Capex")
         for feeder in model.cubes[name].rules.feeders
         if feeder.target_cube == "PnL"
     ]
-    assert len(cross) >= 6
+    assert {
+        ("Workforce", "Wages and Salaries"),
+        ("Workforce", "Superannuation"),
+        ("Workforce", "Payroll Tax"),
+        ("Revenue", "Contract Revenue"),
+        ("Revenue", "Plant Hire Revenue"),
+        ("Revenue", "Fuel"),
+        ("Capex", "Depreciation"),
+    } <= set(cross)
 
 
 def test_no_statutory_rate_is_hard_coded_in_rule_text():

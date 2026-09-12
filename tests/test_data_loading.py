@@ -55,8 +55,18 @@ def test_repeated_rows_with_equal_decimal_values_remain_valid(tmp_path):
         "FY2026-27,Budget,Full Year,SG Rate,0.12\n"
         "fy2026-27,budget,full year,sg rate,0.120\n")
     rows = list(load_csv(path, DRIVERS, MODEL))
-    assert len(rows) == 2
-    assert rows[0] == rows[1]
+    assert len(rows) == 1
+    assert load_into_store(MODEL, "Drivers", path, CellStore()) == 1
+
+
+@pytest.mark.parametrize("period", ["FY", "q1"])
+def test_consolidated_coordinates_are_rejected_with_row_context(tmp_path, period):
+    path = write(tmp_path, f"FY2026-27,Budget,{period},SG Rate,0.12\n")
+    with pytest.raises(ModelError) as caught:
+        list(load_csv(path, DRIVERS, MODEL))
+    assert str(path) in str(caught.value)
+    assert "row 2" in str(caught.value)
+    assert "consolidated" in str(caught.value)
 
 
 def test_an_unknown_element_is_a_model_error_naming_the_row(tmp_path):
