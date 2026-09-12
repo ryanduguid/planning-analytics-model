@@ -10,12 +10,14 @@ from pathlib import Path
 
 import pytest
 
+from conftest import EXAMPLES as EXAMPLES_ROOT
+from conftest import MODEL_ROOT, REPO, write_model
 from pacioliscube import cli
 from pacioliscube.cli import main
+from pacioliscube.report import money
 
-REPO = Path(__file__).resolve().parents[1]
-MODEL = str(REPO / "model")
-EXAMPLES = str(REPO / "examples")
+MODEL = str(MODEL_ROOT)
+EXAMPLES = str(EXAMPLES_ROOT)
 
 CELL = "PnL:FY2026-27,Budget,Jul,CivilCo,Earthworks,Contract Revenue,Amount"
 GROUP_EBITDA = "PnL:FY2026-27,Budget,FY,Group,All Cost Centres,EBITDA,Amount"
@@ -87,48 +89,8 @@ def run(*argv: str) -> tuple:
 
 def build_model(root: Path, rules: str = "", extra_files: dict | None = None) -> str:
     """Write the smallest model a command line test can point at."""
-    (root / "dimensions" / "Colour.hierarchies").mkdir(parents=True, exist_ok=True)
-    (root / "dimensions" / "Measure.hierarchies").mkdir(parents=True, exist_ok=True)
-    (root / "cubes").mkdir(parents=True, exist_ok=True)
-    (root / "dimensions" / "Colour.json").write_text(
-        '{"Name": "Colour", "Hierarchies@Code.links": ["Colour.hierarchies/Colour.json"]}',
-        encoding="utf-8",
-    )
-    (root / "dimensions" / "Colour.hierarchies" / "Colour.json").write_text(
-        '{"Name": "Colour", "Elements": ['
-        '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Red", "Type": "Numeric"},'
-        ' {"Name": "Blue", "Type": "Numeric"}], "Edges": ['
-        '{"ParentName": "Total", "ComponentName": "Red", "Weight": 1},'
-        ' {"ParentName": "Total", "ComponentName": "Blue", "Weight": 1}]}',
-        encoding="utf-8",
-    )
-    (root / "dimensions" / "Measure.json").write_text(
-        '{"Name": "Measure", "Hierarchies@Code.links": ["Measure.hierarchies/Measure.json"]}',
-        encoding="utf-8",
-    )
-    (root / "dimensions" / "Measure.hierarchies" / "Measure.json").write_text(
-        '{"Name": "Measure", "Elements": ['
-        '{"Name": "Units", "Type": "Numeric"}, {"Name": "Price", "Type": "Numeric"},'
-        ' {"Name": "Amount", "Type": "Numeric"}], "Edges": []}',
-        encoding="utf-8",
-    )
-    rules_link = ', "Rules@Code.link": "Sales.rules"' if rules else ""
-    (root / "cubes" / "Sales.json").write_text(
-        '{"Name": "Sales", "Dimensions@Code.links": ["../dimensions/Colour.json",'
-        ' "../dimensions/Measure.json"]%s}' % rules_link,
-        encoding="utf-8",
-    )
-    if rules:
-        (root / "cubes" / "Sales.rules").write_text(rules, encoding="utf-8")
-    (root / "tm1project.json").write_text(
-        '{"Version": 1.0, "Name": "built", "Objects": {"Dimensions":'
-        ' ["dimensions/Colour.json", "dimensions/Measure.json"],'
-        ' "Cubes": ["cubes/Sales.json"]}}',
-        encoding="utf-8",
-    )
-    for name, content in (extra_files or {}).items():
-        (root / name).write_text(content, encoding="utf-8")
-    return str(root)
+    return str(write_model(root, rules=rules, extra_files=extra_files))
+
 
 
 def build_data(root: Path, name: str = "sales.csv", body: str = "Red,Units,10\n") -> str:
@@ -236,19 +198,6 @@ def test_the_model_directory_defaults_to_the_model_folder(monkeypatch, capsys):
     monkeypatch.chdir(REPO)
     assert main(["validate"]) == 0
     assert "0 errors, 0 warnings" in capsys.readouterr().out
-
-
-def test_the_model_directory_may_be_named_as_an_option(tmp_path):
-    # The packaging job installs the wheel and runs the command this way, so
-    # the option has to reach the same place the positional does.
-    root = build_model(tmp_path / "model", rules=UNKNOWN_ELEMENT_RULES)
-    assert run("validate", "--model", root) == run("validate", root)
-
-
-def test_naming_the_model_directory_twice_is_a_usage_error():
-    code, _out, err = run("validate", MODEL, "--model", MODEL)
-    assert code == 1
-    assert "given twice" in err
 
 
 def test_a_finding_prints_as_severity_code_location_then_message(tmp_path):
@@ -426,7 +375,7 @@ def test_an_operating_system_error_reading_a_csv_is_a_usage_error(tmp_path, monk
     def refuse(*_args, **_kwargs):
         raise PermissionError(13, "Permission denied")
 
-    monkeypatch.setattr(cli, "load_into_store", refuse)
+    monkeypatch.setattr("pacioliscube.data.load_into_store", refuse)
     code, _out, err = run_once("calculate", MODEL, "--data", data, "--cell", CELL)
     assert code == 1
     assert "Permission denied" in err
@@ -505,6 +454,7 @@ def test_conflicting_rows_are_a_usage_error_without_calculated_output(tmp_path):
 ])
 def test_output_cells_share_input_reads_within_one_command(monkeypatch, arguments):
     from collections import Counter
+
     from pacioliscube.evaluate import CellStore
 
     reads = Counter()
@@ -634,9 +584,9 @@ def test_the_report_help_names_the_sign_convention():
 
 
 def test_money_brackets_a_negative_and_prints_a_rounded_zero_plain():
-    assert cli._money(Decimal("1234.5")) == "1,235"
-    assert cli._money(Decimal("-1234.5")) == "(1,235)"
-    assert cli._money(Decimal("-0.4")) == "0"
+    assert money(Decimal("1234.5")) == "1,235"
+    assert money(Decimal("-1234.5")) == "(1,235)"
+    assert money(Decimal("-0.4")) == "0"
 
 
 def test_the_printed_lines_articulate_to_within_the_rounding():

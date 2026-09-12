@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import MEASURES, write_model
 from pacioliscube.evaluate import (
     CellStore,
     CircularReference,
@@ -16,6 +17,10 @@ from pacioliscube.evaluate import (
 from pacioliscube.model import ModelError, load_model
 
 MINI = Path(__file__).parent / "fixtures" / "mini"
+
+# The built model carries a Margin measure the shared default does not, for the
+# rules that calculate one measure from another.
+MEASURES_WITH_MARGIN = MEASURES + ', {"Name": "Margin", "Type": "Numeric"}'
 
 
 def loaded_store(**cells) -> tuple:
@@ -123,6 +128,41 @@ def test_evaluation_is_decimal_not_float(tmp_path):
     assert result.get("Sales", ("Red", "Amount")) == Decimal("0.3")
 
 
+# Every comparison TM1 rules allow, each one at a pair of operands that makes it
+# hold and a pair that makes it fail, so neither arm of the IF nor either answer
+# of the operator is taken on trust. The rule returns 10 when the comparison
+# holds and 20 when it does not, and each expected figure is derived by hand:
+# 2 = 2 holds and 3 = 2 does not; 3 <> 2 holds and 2 <> 2 does not; 2 < 3 holds
+# and 2 < 2 does not; 2 <= 2 holds and 3 <= 2 does not; 3 > 2 holds and 2 > 2
+# does not; 2 >= 2 holds and 2 >= 3 does not. The three two character operators
+# also prove the tokeniser reads them as one token rather than as two.
+@pytest.mark.parametrize(
+    "operator, units, price, expected",
+    [
+        ("=", "2", "2", "10"),
+        ("=", "3", "2", "20"),
+        ("<>", "3", "2", "10"),
+        ("<>", "2", "2", "20"),
+        ("<", "2", "3", "10"),
+        ("<", "2", "2", "20"),
+        ("<=", "2", "2", "10"),
+        ("<=", "3", "2", "20"),
+        (">", "3", "2", "10"),
+        (">", "2", "2", "20"),
+        (">=", "2", "2", "10"),
+        (">=", "2", "3", "20"),
+    ],
+)
+def test_if_evaluates_every_comparison_operator(tmp_path, operator, units, price, expected):
+    model, store = build_model(
+        tmp_path, f"['Amount'] = N: IF(['Units'] {operator} ['Price'], 10, 20);"
+    )
+    store.set("Sales", ("Red", "Units"), Decimal(units))
+    store.set("Sales", ("Red", "Price"), Decimal(price))
+    result = evaluate(model, store)
+    assert result.get("Sales", ("Red", "Amount")) == Decimal(expected)
+
+
 def test_an_n_rule_does_not_calculate_a_consolidated_cell():
     model, store = loaded_store(Sales__Red__Units="10", Sales__Red__Price="2")
     result = evaluate(model, store)
@@ -215,44 +255,9 @@ def test_batch_consolidation_preserves_order_weights_and_fresh_inputs():
 
 def build_model(root: Path, rules_text: str):
     """Write a two dimension Sales cube with the given rules and return it loaded."""
-    (root / "dimensions").mkdir(parents=True, exist_ok=True)
-    (root / "cubes").mkdir(parents=True, exist_ok=True)
-    for name, elements, edges in (
-        (
-            "Colour",
-            '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Red", "Type": "Numeric"},'
-            ' {"Name": "Blue", "Type": "Numeric"}',
-            '{"ParentName": "Total", "ComponentName": "Red", "Weight": 1},'
-            ' {"ParentName": "Total", "ComponentName": "Blue", "Weight": 1}',
-        ),
-        (
-            "Measure",
-            '{"Name": "Units", "Type": "Numeric"}, {"Name": "Price", "Type": "Numeric"},'
-            ' {"Name": "Amount", "Type": "Numeric"}, {"Name": "Margin", "Type": "Numeric"}',
-            "",
-        ),
-    ):
-        (root / "dimensions" / f"{name}.json").write_text(
-            '{"Name": "%s", "Hierarchies@Code.links": ["%s.hierarchies/%s.json"]}' % (name, name, name),
-            encoding="utf-8",
-        )
-        hierarchy_dir = root / "dimensions" / f"{name}.hierarchies"
-        hierarchy_dir.mkdir(exist_ok=True)
-        (hierarchy_dir / f"{name}.json").write_text(
-            '{"Name": "%s", "Elements": [%s], "Edges": [%s]}' % (name, elements, edges),
-            encoding="utf-8",
-        )
-    (root / "cubes" / "Sales.json").write_text(
-        '{"Name": "Sales", "Dimensions@Code.links": ["../dimensions/Colour.json",'
-        ' "../dimensions/Measure.json"], "Rules@Code.link": "Sales.rules"}',
-        encoding="utf-8",
-    )
-    (root / "cubes" / "Sales.rules").write_text(
-        "SKIPCHECK;\n" + rules_text + "\nFEEDERS;\n['Units'] => ['Amount'];\n", encoding="utf-8"
-    )
-    (root / "tm1project.json").write_text(
-        '{"Version": 1.0, "Name": "built", "Objects": {"Dimensions":'
-        ' ["dimensions/Colour.json", "dimensions/Measure.json"], "Cubes": ["cubes/Sales.json"]}}',
-        encoding="utf-8",
+    write_model(
+        root,
+        rules="SKIPCHECK;\n" + rules_text + "\nFEEDERS;\n['Units'] => ['Amount'];\n",
+        measures=MEASURES_WITH_MARGIN,
     )
     return load_model(root), CellStore()

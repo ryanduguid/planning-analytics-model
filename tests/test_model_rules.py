@@ -2,14 +2,13 @@
 
 import re
 from decimal import Decimal
-from pathlib import Path
 
+from conftest import EXAMPLES, MODEL_ROOT
 from pacioliscube.data import load_csv
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
 
-MODEL_ROOT = Path(__file__).resolve().parents[1] / "model"
-DRIVERS_CSV = Path(__file__).resolve().parents[1] / "examples" / "drivers.csv"
+DRIVERS_CSV = EXAMPLES / "drivers.csv"
 
 # Zero and one are arithmetic identities. A driver sitting at either carries no
 # figure worth protecting, so the guard skipping it costs nothing: the shipped

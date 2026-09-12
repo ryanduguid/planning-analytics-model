@@ -3,11 +3,11 @@
 from decimal import Decimal
 from pathlib import Path
 
-from hypothesis import example, given, seed, settings, strategies as st
+from hypothesis import example, given, seed, settings
+from hypothesis import strategies as st
 
 from pacioliscube.evaluate import CellStore, consolidate, evaluate
 from pacioliscube.model import load_model
-
 
 MINI = Path(__file__).parent / "fixtures" / "mini"
 MODEL = load_model(MINI)

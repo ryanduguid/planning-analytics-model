@@ -64,12 +64,16 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-src = ["pacioliscube", "tests"]
+# The roots import sorting resolves a module name against, so the package and
+# the tests' own conftest sort as first party rather than as dependencies.
+src = [".", "tests"]
 
 [tool.ruff.lint]
-# First-enablement set: syntax and undefined-name errors only (E9, F82).
-# Existing import layout and string literals stay as they are.
-select = ["E9", "F82"]
+# Import errors (E4), statement errors (E7), syntax errors (E9), the whole of
+# pyflakes (F) and import sorting (I). Line length is set above and is not
+# enforced as a lint, because wrapping a long error message mid sentence costs
+# more in reading than it gains.
+select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.mypy]
 python_version = "3.10"

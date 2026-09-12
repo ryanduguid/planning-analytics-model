@@ -12,11 +12,11 @@ Nothing here touches a network. The whole tree is data on disk.
 from __future__ import annotations
 
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import Iterable, NamedTuple, Optional
 
-from pacioliscube.rules import RuleSet, parse_rules
+from pacioliscube.rules import RuleSet, decimal_or_raise, parse_rules
 
 CONSOLIDATED = "Consolidated"
 NUMERIC = "Numeric"
@@ -38,14 +38,6 @@ class Edge(NamedTuple):
     parent: str
     component: str
     weight: Decimal
-
-
-def _decimal(value: object, where: str) -> Decimal:
-    """Parse a weight or value without ever routing it through a float."""
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError) as error:
-        raise ModelError(f"{where}: {value!r} is not a number") from error
 
 
 def _read_json(path: Path) -> dict:
@@ -224,7 +216,9 @@ def _load_hierarchy(path: Path, dimension_name: str) -> Hierarchy:
         component = entry.get("ComponentName")
         if not parent or not component:
             raise ModelError(f"{path}: an edge is missing ParentName or ComponentName")
-        weight = _decimal(entry.get("Weight", 1), f"{path}: edge {parent} to {component}")
+        weight = decimal_or_raise(
+            entry.get("Weight", 1), f"{path}: edge {parent} to {component}", ModelError
+        )
         edges.append(Edge(parent, component, weight))
     return Hierarchy(name, dimension_name, elements, edges, path)
 

@@ -11,14 +11,14 @@ landing on a cent the comparison quantises both sides, and the comment says so.
 """
 
 from decimal import ROUND_HALF_UP, Decimal
-from pathlib import Path
 
+from conftest import EXAMPLES as EXAMPLE_DIR
+from conftest import MODEL_ROOT
 from pacioliscube.data import load_into_store
 from pacioliscube.evaluate import CellStore, consolidate, evaluate
 from pacioliscube.model import load_model
 
-REPO = Path(__file__).resolve().parents[1]
-MODEL = load_model(REPO / "model")
+MODEL = load_model(MODEL_ROOT)
 
 EXAMPLES = {
     "Drivers": "drivers.csv",
@@ -40,7 +40,7 @@ def loaded_store() -> CellStore:
     """Every shipped example CSV in one store, before any rule runs."""
     store = CellStore()
     for cube, name in EXAMPLES.items():
-        load_into_store(MODEL, cube, REPO / "examples" / name, store)
+        load_into_store(MODEL, cube, EXAMPLE_DIR / name, store)
     return store
 
 

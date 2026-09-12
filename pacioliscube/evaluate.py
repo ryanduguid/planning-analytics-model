@@ -238,8 +238,8 @@ class _Engine:
             if self.evaluate_condition(expression.condition, cube, coordinate):
                 return self.evaluate_expression(expression.then_expr, cube, coordinate)
             return self.evaluate_expression(expression.else_expr, cube, coordinate)
-        if isinstance(expression, Comparison):
-            return Decimal("1") if self.evaluate_condition(expression, cube, coordinate) else ZERO
+        # A Comparison only ever reaches evaluate_condition, because the grammar
+        # produces one inside an IF and nowhere else.
         raise EvaluationError(f"unsupported expression node {type(expression).__name__}")
 
     def evaluate_condition(self, condition: Comparison, cube: Cube, coordinate: Coordinate) -> bool:
@@ -269,26 +269,29 @@ class _Engine:
                 target[position] = self.model.hierarchy(cube.dimensions[position]).resolve(element)
             return cube.name, tuple(target)
 
+        # validate.py's _validate_cube_rules refuses an unknown cube (DIM001), the
+        # wrong number of DB coordinates (ARE001) and a !Dimension the cube does
+        # not have (ELE001), and every caller validates before it calculates, so
+        # the three checks below assert what the validator has already settled.
         target_cube = self.model.cubes.get(reference.cube)
-        if target_cube is None:
-            raise ModelError(
-                f"cube {cube.name!r}: a rule reads cube {reference.cube!r}, which the model does not hold"
-            )
-        if len(reference.coordinates) != len(target_cube.dimensions):
-            raise ModelError(
-                f"cube {cube.name!r}: DB('{reference.cube}', ...) passes "
-                f"{len(reference.coordinates)} coordinates for a cube of "
-                f"{len(target_cube.dimensions)} dimensions"
-            )
+        assert target_cube is not None, (
+            f"cube {cube.name!r}: a rule reads cube {reference.cube!r}, "
+            "which the model does not hold"
+        )
+        assert len(reference.coordinates) == len(target_cube.dimensions), (
+            f"cube {cube.name!r}: DB('{reference.cube}', ...) passes "
+            f"{len(reference.coordinates)} coordinates for a cube of "
+            f"{len(target_cube.dimensions)} dimensions"
+        )
         resolved: list[str] = []
         for position, argument in enumerate(reference.coordinates):
             dimension = target_cube.dimensions[position]
             if argument.startswith("!"):
                 source_dimension = argument[1:]
-                if source_dimension not in cube.dimensions:
-                    raise ModelError(
-                        f"cube {cube.name!r}: !{source_dimension} names a dimension the cube does not have"
-                    )
+                assert source_dimension in cube.dimensions, (
+                    f"cube {cube.name!r}: !{source_dimension} names a dimension "
+                    "the cube does not have"
+                )
                 element = coordinate[cube.dimensions.index(source_dimension)]
             else:
                 element = argument

@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from conftest import EXAMPLES, MODEL_ROOT
 from pacioliscube.data import load_csv, load_into_store
 from pacioliscube.evaluate import CellStore
 from pacioliscube.model import ModelError, load_model
 
-REPO = Path(__file__).resolve().parents[1]
-MODEL = load_model(REPO / "model")
+MODEL = load_model(MODEL_ROOT)
 DRIVERS = MODEL.cubes["Drivers"]
 
 HEADER = "Year,Version,Period,DriverMeasure,Value\n"
@@ -129,11 +129,11 @@ def test_a_byte_order_mark_is_tolerated(tmp_path):
 def test_every_shipped_example_csv_loads_without_error():
     store = CellStore()
     counts = {
-        "Drivers": load_into_store(MODEL, "Drivers", REPO / "examples" / "drivers.csv", store),
-        "Workforce": load_into_store(MODEL, "Workforce", REPO / "examples" / "workforce.csv", store),
-        "Revenue": load_into_store(MODEL, "Revenue", REPO / "examples" / "revenue.csv", store),
-        "Capex": load_into_store(MODEL, "Capex", REPO / "examples" / "capex.csv", store),
-        "PnL": load_into_store(MODEL, "PnL", REPO / "examples" / "pnl-direct.csv", store),
+        "Drivers": load_into_store(MODEL, "Drivers", EXAMPLES / "drivers.csv", store),
+        "Workforce": load_into_store(MODEL, "Workforce", EXAMPLES / "workforce.csv", store),
+        "Revenue": load_into_store(MODEL, "Revenue", EXAMPLES / "revenue.csv", store),
+        "Capex": load_into_store(MODEL, "Capex", EXAMPLES / "capex.csv", store),
+        "PnL": load_into_store(MODEL, "PnL", EXAMPLES / "pnl-direct.csv", store),
     }
     assert all(count > 0 for count in counts.values()), counts
 
@@ -142,7 +142,7 @@ def test_the_examples_never_write_a_calculated_cell():
     # A loaded value under a rule calculated area would be silently shadowed by
     # the rule, so the shipped examples must never carry one.
     store = CellStore()
-    load_into_store(MODEL, "PnL", REPO / "examples" / "pnl-direct.csv", store)
+    load_into_store(MODEL, "PnL", EXAMPLES / "pnl-direct.csv", store)
     calculated_accounts = {
         "Contract Revenue",
         "Plant Hire Revenue",

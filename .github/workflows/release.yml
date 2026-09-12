@@ -1,0 +1,17 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+    uses: ryanduguid/release-policy/.github/workflows/release-python.yml@3ba1bb8f8b656c1aaa7570e69f5a6f731c6f20ab
