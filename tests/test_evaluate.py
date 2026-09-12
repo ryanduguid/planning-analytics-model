@@ -15,7 +15,13 @@ from pacioliscube.evaluate import (
 )
 from pacioliscube.model import ModelError, load_model
 
+from conftest import MEASURES, write_model
+
 MINI = Path(__file__).parent / "fixtures" / "mini"
+
+# The built model carries a Margin measure the shared default does not, for the
+# rules that calculate one measure from another.
+MEASURES_WITH_MARGIN = MEASURES + ', {"Name": "Margin", "Type": "Numeric"}'
 
 
 def loaded_store(**cells) -> tuple:
@@ -250,44 +256,9 @@ def test_batch_consolidation_preserves_order_weights_and_fresh_inputs():
 
 def build_model(root: Path, rules_text: str):
     """Write a two dimension Sales cube with the given rules and return it loaded."""
-    (root / "dimensions").mkdir(parents=True, exist_ok=True)
-    (root / "cubes").mkdir(parents=True, exist_ok=True)
-    for name, elements, edges in (
-        (
-            "Colour",
-            '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Red", "Type": "Numeric"},'
-            ' {"Name": "Blue", "Type": "Numeric"}',
-            '{"ParentName": "Total", "ComponentName": "Red", "Weight": 1},'
-            ' {"ParentName": "Total", "ComponentName": "Blue", "Weight": 1}',
-        ),
-        (
-            "Measure",
-            '{"Name": "Units", "Type": "Numeric"}, {"Name": "Price", "Type": "Numeric"},'
-            ' {"Name": "Amount", "Type": "Numeric"}, {"Name": "Margin", "Type": "Numeric"}',
-            "",
-        ),
-    ):
-        (root / "dimensions" / f"{name}.json").write_text(
-            '{"Name": "%s", "Hierarchies@Code.links": ["%s.hierarchies/%s.json"]}' % (name, name, name),
-            encoding="utf-8",
-        )
-        hierarchy_dir = root / "dimensions" / f"{name}.hierarchies"
-        hierarchy_dir.mkdir(exist_ok=True)
-        (hierarchy_dir / f"{name}.json").write_text(
-            '{"Name": "%s", "Elements": [%s], "Edges": [%s]}' % (name, elements, edges),
-            encoding="utf-8",
-        )
-    (root / "cubes" / "Sales.json").write_text(
-        '{"Name": "Sales", "Dimensions@Code.links": ["../dimensions/Colour.json",'
-        ' "../dimensions/Measure.json"], "Rules@Code.link": "Sales.rules"}',
-        encoding="utf-8",
-    )
-    (root / "cubes" / "Sales.rules").write_text(
-        "SKIPCHECK;\n" + rules_text + "\nFEEDERS;\n['Units'] => ['Amount'];\n", encoding="utf-8"
-    )
-    (root / "tm1project.json").write_text(
-        '{"Version": 1.0, "Name": "built", "Objects": {"Dimensions":'
-        ' ["dimensions/Colour.json", "dimensions/Measure.json"], "Cubes": ["cubes/Sales.json"]}}',
-        encoding="utf-8",
+    write_model(
+        root,
+        rules="SKIPCHECK;\n" + rules_text + "\nFEEDERS;\n['Units'] => ['Amount'];\n",
+        measures=MEASURES_WITH_MARGIN,
     )
     return load_model(root), CellStore()

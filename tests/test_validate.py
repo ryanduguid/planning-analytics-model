@@ -1,7 +1,6 @@
 """Structural validation findings, one test per check."""
 
 from pathlib import Path
-import json
 
 import pytest
 
@@ -9,74 +8,12 @@ from pacioliscube import validate as validation
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
 
-REPO = Path(__file__).resolve().parents[1]
-MODEL_ROOT = REPO / "model"
+from conftest import MODEL_ROOT, write_model
 
 
-def build_model(
-    root: Path,
-    rules: str = "",
-    cube_dimensions: str = '"../dimensions/Colour.json", "../dimensions/Measure.json"',
-    extra_files: dict | None = None,
-    manifest_cubes: str = '"cubes/Sales.json"',
-    processes: str = "",
-    parameters: tuple[dict, ...] = (),
-):
-    """Write the smallest model that can carry the defect under test."""
-    (root / "dimensions").mkdir(parents=True, exist_ok=True)
-    (root / "cubes").mkdir(parents=True, exist_ok=True)
-    for name, elements, edges in (
-        (
-            "Colour",
-            '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Red", "Type": "Numeric"},'
-            ' {"Name": "Blue", "Type": "Numeric"}',
-            '{"ParentName": "Total", "ComponentName": "Red", "Weight": 1},'
-            ' {"ParentName": "Total", "ComponentName": "Blue", "Weight": 1}',
-        ),
-        (
-            "Measure",
-            '{"Name": "Units", "Type": "Numeric"}, {"Name": "Price", "Type": "Numeric"},'
-            ' {"Name": "Amount", "Type": "Numeric"}',
-            "",
-        ),
-    ):
-        (root / "dimensions" / f"{name}.json").write_text(
-            '{"Name": "%s", "Hierarchies@Code.links": ["%s.hierarchies/%s.json"]}' % (name, name, name),
-            encoding="utf-8",
-        )
-        hierarchy_dir = root / "dimensions" / f"{name}.hierarchies"
-        hierarchy_dir.mkdir(exist_ok=True)
-        (hierarchy_dir / f"{name}.json").write_text(
-            '{"Name": "%s", "Elements": [%s], "Edges": [%s]}' % (name, elements, edges),
-            encoding="utf-8",
-        )
-    rules_link = ', "Rules@Code.link": "Sales.rules"' if rules else ""
-    (root / "cubes" / "Sales.json").write_text(
-        '{"Name": "Sales", "Dimensions@Code.links": [%s]%s}' % (cube_dimensions, rules_link),
-        encoding="utf-8",
-    )
-    if rules:
-        (root / "cubes" / "Sales.rules").write_text(rules, encoding="utf-8")
-    process_entry = ""
-    if processes:
-        (root / "processes").mkdir(exist_ok=True)
-        (root / "processes" / "Load.json").write_text(
-            json.dumps({"Name": "Load", "Parameters": parameters, "DataSource": {}, "Code@Code.link": "Load.ti"}),
-            encoding="utf-8",
-        )
-        (root / "processes" / "Load.ti").write_text(processes, encoding="utf-8")
-        process_entry = ', "Processes": ["processes/Load.json"]'
-    (root / "tm1project.json").write_text(
-        '{"Version": 1.0, "Name": "built", "Objects": {"Dimensions":'
-        ' ["dimensions/Colour.json", "dimensions/Measure.json"], "Cubes": [%s]%s}}'
-        % (manifest_cubes, process_entry),
-        encoding="utf-8",
-    )
-    for name, content in (extra_files or {}).items():
-        target = root / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    return load_model(root)
+def build_model(root: Path, **written):
+    """Write the smallest model that can carry the defect under test, and load it."""
+    return load_model(write_model(root, **written))
 
 
 def codes(model):

@@ -5,10 +5,9 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
 
-
-def test_changed_line_coverage_is_scoped_and_fail_closed() -> None:
+def test_changed_line_coverage_is_scoped_and_fail_closed(repo: Path) -> None:
+    ROOT = repo
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     workflow_path = ROOT / ".github" / "workflows" / "ci.yml"
     if not workflow_path.is_file():

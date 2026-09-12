@@ -1,10 +1,9 @@
 """The shipped model's structure: the things a reviewer would check by eye."""
 
-from pathlib import Path
-
 from pacioliscube.model import load_model
 
-MODEL_ROOT = Path(__file__).resolve().parents[1] / "model"
+from conftest import MODEL_ROOT
+
 
 EXPECTED_DIMENSIONS = {
     "Year",

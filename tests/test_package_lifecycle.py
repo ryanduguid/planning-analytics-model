@@ -3,13 +3,10 @@
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def test_readme_declares_source_only_installation() -> None:
+def test_readme_declares_source_only_installation(repo: Path) -> None:
     # The project is not on PyPI, so a README that opens with pip install
     # pacioliscube sends every reader to a package that cannot be found.
-    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    readme = " ".join((repo / "README.md").read_text(encoding="utf-8").split())
 
     assert "**Package lifecycle:** source-only." in readme
     assert "not published to PyPI" in readme

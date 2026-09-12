@@ -14,9 +14,10 @@ from pacioliscube import cli
 from pacioliscube.cli import main
 from pacioliscube.report import money
 
-REPO = Path(__file__).resolve().parents[1]
-MODEL = str(REPO / "model")
-EXAMPLES = str(REPO / "examples")
+from conftest import EXAMPLES as EXAMPLES_ROOT, MODEL_ROOT, REPO, write_model
+
+MODEL = str(MODEL_ROOT)
+EXAMPLES = str(EXAMPLES_ROOT)
 
 CELL = "PnL:FY2026-27,Budget,Jul,CivilCo,Earthworks,Contract Revenue,Amount"
 GROUP_EBITDA = "PnL:FY2026-27,Budget,FY,Group,All Cost Centres,EBITDA,Amount"
@@ -88,48 +89,8 @@ def run(*argv: str) -> tuple:
 
 def build_model(root: Path, rules: str = "", extra_files: dict | None = None) -> str:
     """Write the smallest model a command line test can point at."""
-    (root / "dimensions" / "Colour.hierarchies").mkdir(parents=True, exist_ok=True)
-    (root / "dimensions" / "Measure.hierarchies").mkdir(parents=True, exist_ok=True)
-    (root / "cubes").mkdir(parents=True, exist_ok=True)
-    (root / "dimensions" / "Colour.json").write_text(
-        '{"Name": "Colour", "Hierarchies@Code.links": ["Colour.hierarchies/Colour.json"]}',
-        encoding="utf-8",
-    )
-    (root / "dimensions" / "Colour.hierarchies" / "Colour.json").write_text(
-        '{"Name": "Colour", "Elements": ['
-        '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Red", "Type": "Numeric"},'
-        ' {"Name": "Blue", "Type": "Numeric"}], "Edges": ['
-        '{"ParentName": "Total", "ComponentName": "Red", "Weight": 1},'
-        ' {"ParentName": "Total", "ComponentName": "Blue", "Weight": 1}]}',
-        encoding="utf-8",
-    )
-    (root / "dimensions" / "Measure.json").write_text(
-        '{"Name": "Measure", "Hierarchies@Code.links": ["Measure.hierarchies/Measure.json"]}',
-        encoding="utf-8",
-    )
-    (root / "dimensions" / "Measure.hierarchies" / "Measure.json").write_text(
-        '{"Name": "Measure", "Elements": ['
-        '{"Name": "Units", "Type": "Numeric"}, {"Name": "Price", "Type": "Numeric"},'
-        ' {"Name": "Amount", "Type": "Numeric"}], "Edges": []}',
-        encoding="utf-8",
-    )
-    rules_link = ', "Rules@Code.link": "Sales.rules"' if rules else ""
-    (root / "cubes" / "Sales.json").write_text(
-        '{"Name": "Sales", "Dimensions@Code.links": ["../dimensions/Colour.json",'
-        ' "../dimensions/Measure.json"]%s}' % rules_link,
-        encoding="utf-8",
-    )
-    if rules:
-        (root / "cubes" / "Sales.rules").write_text(rules, encoding="utf-8")
-    (root / "tm1project.json").write_text(
-        '{"Version": 1.0, "Name": "built", "Objects": {"Dimensions":'
-        ' ["dimensions/Colour.json", "dimensions/Measure.json"],'
-        ' "Cubes": ["cubes/Sales.json"]}}',
-        encoding="utf-8",
-    )
-    for name, content in (extra_files or {}).items():
-        (root / name).write_text(content, encoding="utf-8")
-    return str(root)
+    return str(write_model(root, rules=rules, extra_files=extra_files))
+
 
 
 def build_data(root: Path, name: str = "sales.csv", body: str = "Red,Units,10\n") -> str:
