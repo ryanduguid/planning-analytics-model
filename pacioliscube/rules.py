@@ -217,7 +217,9 @@ class _Parser:
         token = self.current
         if token.kind == "number":
             self.advance()
-            return Number(_decimal(token.text, self.path, token.line))
+            return Number(
+                decimal_or_raise(token.text, f"{self.path} line {token.line}", RuleSyntaxError)
+            )
         if token.kind == "op" and token.text == "-":
             self.advance()
             operand = self.parse_primary()
@@ -290,11 +292,20 @@ class _Parser:
         return expression
 
 
-def _decimal(text: str, path: Path, line: int) -> Decimal:
+def decimal_or_raise(
+    text: object, where: str, raises: type[Exception], label: str = ""
+) -> Decimal:
+    """Parse text as a Decimal, or raise ``raises`` naming where the text came from.
+
+    Every module that reads a figure off disk wants the same three things: the
+    text routed to Decimal without passing through a float, the offending text
+    quoted back, and the file, line or row it came from named. ``label`` is the
+    word that precedes the text, for a caller whose message says "value".
+    """
     try:
-        return Decimal(text)
-    except InvalidOperation as error:
-        raise RuleSyntaxError(f"{path} line {line}: {text!r} is not a number") from error
+        return Decimal(str(text))
+    except (InvalidOperation, ValueError) as error:
+        raise raises(f"{where}: {label}{text!r} is not a number") from error
 
 
 def parse_rules(text: str, path: Path) -> RuleSet:

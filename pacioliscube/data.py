@@ -9,11 +9,12 @@ checked before it is used, and every error names the file and the row.
 from __future__ import annotations
 
 import csv
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import Iterator
 
 from pacioliscube.model import Cube, Model, ModelError
+from pacioliscube.rules import decimal_or_raise
 
 Coordinate = tuple[str, ...]
 
@@ -58,12 +59,7 @@ def load_csv(path: Path, cube: Cube, model: Model) -> Iterator[tuple[Coordinate,
                 except ModelError as error:
                     raise ModelError(f"{path} row {number}: {error}") from None
             text = row[-1].strip()
-            try:
-                value = Decimal(text)
-            except InvalidOperation:
-                raise ModelError(
-                    f"{path} row {number}: value {text!r} is not a number"
-                ) from None
+            value = decimal_or_raise(text, f"{path} row {number}", ModelError, "value ")
             if not value.is_finite():
                 raise ModelError(
                     f"{path} row {number}: value {text!r} is not a finite number"
