@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
+from conftest import EXAMPLES as EXAMPLES_ROOT
+from conftest import MODEL_ROOT, REPO, write_model
 from pacioliscube import cli
 from pacioliscube.cli import main
 from pacioliscube.report import money
-
-from conftest import EXAMPLES as EXAMPLES_ROOT, MODEL_ROOT, REPO, write_model
 
 MODEL = str(MODEL_ROOT)
 EXAMPLES = str(EXAMPLES_ROOT)
@@ -454,6 +454,7 @@ def test_conflicting_rows_are_a_usage_error_without_calculated_output(tmp_path):
 ])
 def test_output_cells_share_input_reads_within_one_command(monkeypatch, arguments):
     from collections import Counter
+
     from pacioliscube.evaluate import CellStore
 
     reads = Counter()

@@ -5,11 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from conftest import EXAMPLES, MODEL_ROOT
 from pacioliscube.data import load_csv, load_into_store
 from pacioliscube.evaluate import CellStore
 from pacioliscube.model import ModelError, load_model
-
-from conftest import EXAMPLES, MODEL_ROOT
 
 MODEL = load_model(MODEL_ROOT)
 DRIVERS = MODEL.cubes["Drivers"]

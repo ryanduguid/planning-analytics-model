@@ -2,13 +2,11 @@
 
 import re
 from decimal import Decimal
-from pathlib import Path
 
+from conftest import EXAMPLES, MODEL_ROOT
 from pacioliscube.data import load_csv
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
-
-from conftest import EXAMPLES, MODEL_ROOT
 
 DRIVERS_CSV = EXAMPLES / "drivers.csv"
 

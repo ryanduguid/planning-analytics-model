@@ -1,9 +1,7 @@
 """The shipped model's structure: the things a reviewer would check by eye."""
 
-from pacioliscube.model import load_model
-
 from conftest import MODEL_ROOT
-
+from pacioliscube.model import load_model
 
 EXPECTED_DIMENSIONS = {
     "Year",

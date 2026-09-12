@@ -13,7 +13,7 @@ import re
 from typing import Iterator, NamedTuple
 
 from pacioliscube.model import Cube, Model
-from pacioliscube.rules import Area, CellRef, Expr, IfExpr, BinaryOp, Comparison
+from pacioliscube.rules import Area, BinaryOp, CellRef, Comparison, Expr, IfExpr
 
 ERROR = "error"
 WARNING = "warning"

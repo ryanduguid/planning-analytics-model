@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import MEASURES, write_model
 from pacioliscube.evaluate import (
     CellStore,
     CircularReference,
@@ -14,8 +15,6 @@ from pacioliscube.evaluate import (
     evaluate,
 )
 from pacioliscube.model import ModelError, load_model
-
-from conftest import MEASURES, write_model
 
 MINI = Path(__file__).parent / "fixtures" / "mini"
 

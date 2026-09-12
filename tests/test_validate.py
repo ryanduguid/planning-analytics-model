@@ -4,11 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from conftest import MODEL_ROOT, write_model
 from pacioliscube import validate as validation
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
-
-from conftest import MODEL_ROOT, write_model
 
 
 def build_model(root: Path, **written):
