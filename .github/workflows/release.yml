@@ -14,7 +14,7 @@ jobs:
       attestations: write
       contents: write
       id-token: write
-    uses: ryanduguid/release-policy/.github/workflows/release-python.yml@3ba1bb8f8b656c1aaa7570e69f5a6f731c6f20ab
+    uses: ryanduguid/release-policy/.github/workflows/release-python.yml@2351d43805ee3b08f004a3a7e7cde9c9a81e7813
     with:
       upload-dist-artifact: true
 
