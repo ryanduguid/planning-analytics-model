@@ -50,7 +50,7 @@ DEDUCTION_ROWS = frozenset(
     {"Direct Costs", "Employment Costs", "Overheads", "Depreciation"}
 )
 
-# The three dimensions without which the eight rows would all read the same
+# The 3 dimensions without which the 8 rows would all read the same
 # cell, so the report would print something that looked right and was not.
 REQUIRED_DIMENSIONS = ("Year", "Version", "Account")
 
@@ -78,7 +78,7 @@ def money(value: Decimal) -> str:
 
 
 def fixed_slice() -> str:
-    """The slice the report is fixed to, spelled out for an error message."""
+    """The slice the report is fixed to, spelt out for an error message."""
     return ", ".join(f"{name} {element!r}" for name, element in REPORT_SLICE.items())
 
 
@@ -101,7 +101,7 @@ def _selection(model: Model, cube: Cube, year: str, version: str, account: str) 
         if dimension in FROM_COMMAND_LINE:
             resolved[dimension] = element_or_error(model, dimension, wanted[dimension], EXIT_USAGE)
             continue
-        # Everything else is spelled by the report rather than by the caller, so
+        # Everything else is spelt by the report rather than by the caller, so
         # a model that does not hold it is a model this report does not fit. It
         # is not a broken model, and it does not take the invalid model code.
         try:

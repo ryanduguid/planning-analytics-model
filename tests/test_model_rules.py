@@ -132,7 +132,7 @@ def test_every_month_of_depreciation_is_fed_by_name():
     """A feeder keeps the source cell's own period wherever the target is silent.
 
     Additions are held at the Full Year period, so a cell to cell feeder reaches
-    Full Year and no month. Depreciation is calculated in all twelve months and
+    Full Year and no month. Depreciation is calculated in all 12 months and
     the P and L pulls it month by month, so each month has to be named. Left
     unfed the charge is invisible in a real database while the rule still reads
     as correct, which is the one failure a feeder exists to prevent.
@@ -196,7 +196,7 @@ def test_the_guard_covers_every_shipped_driver_value():
         # The probe carries no divisor. An earlier version wrote the statement
         # as "* {literal} / 12", so a driver shipping at 12 was found in the
         # scaffold's own twelfth and the test passed while the guard could not
-        # actually tell the two apart.
+        # actually tell the 2 apart.
         statement = f"['Base Pay'] = N: ['Headcount'] * {literal};"
         if literal not in figures_hard_coded_in(statement):
             unguarded.append(f"{' '.join(coordinate)} = {literal}")

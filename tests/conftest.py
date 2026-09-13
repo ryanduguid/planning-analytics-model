@@ -5,7 +5,7 @@ from here rather than counting directories up from its own ``__file__``, and
 writes a model for a test by calling ``write_model`` rather than spelling the
 same dimension, cube and manifest JSON a third time.
 
-``write_model`` carries every option the three callers between them need: the
+``write_model`` carries every option the 3 callers between them need: the
 measures of the Measure dimension, the dimensions the cube links, the cubes the
 manifest lists, a rules file, a TurboIntegrator process, and files written into
 the tree that the manifest does not list. It returns the root it wrote, and

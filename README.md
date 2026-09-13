@@ -127,7 +127,7 @@ Four cubes feed a fifth. `Drivers` holds statutory and planning rates and has no
 rules at all. `Workforce` turns headcount and pay rates into base pay,
 superannuation and payroll tax. `Revenue` turns billable hours and charge rates
 into revenue, and litres into fuel cost. `Capex` spreads fleet additions over
-each asset class life. All three feed `PnL`, which carries the statement from
+each asset class life. All 3 feed `PnL`, which carries the statement from
 revenue down to EBIT.
 
 No rule file holds a statutory rate. Every one is read from the `Drivers` cube
@@ -141,7 +141,7 @@ The suite computes the model and asserts figures, rather than only checking that
 the source parses. Each expected number is written out longhand in the test, so
 a reviewer can follow the arithmetic without trusting the engine:
 
-- Monthly base pay is headcount times the annual rate over twelve.
+- Monthly base pay is headcount times the annual rate over 12.
 - Superannuation is capped at the maximum contribution base, and the cap is
   proved to bite by asserting the gap from the uncapped figure.
 - Each year caps at its own base, so correcting one year cannot pass silently.
@@ -155,7 +155,7 @@ a reviewer can follow the arithmetic without trusting the engine:
 
 Breaking any of those in the model source turns the suite red.
 
-[Native TM1 comparison](docs/native-comparison.md) defines eight synthetic cells,
+[Native TM1 comparison](docs/native-comparison.md) defines 8 synthetic cells,
 their independent expected values and the evidence to retain. Native comparison
 is pending because no TM1 server was available; passing offline tests does not
 establish agreement with a native server.

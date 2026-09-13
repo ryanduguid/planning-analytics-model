@@ -54,7 +54,7 @@ there today.
 | Driver | Year | Value in `examples/drivers.csv` | Source | Retrieved | Status |
 | --- | --- | --- | --- | --- | --- |
 | SG Rate | FY2025-26 | 0.12 | [1] s 19(2), table item for a year starting on or after 1 July 2025 | 2026-08-23 | Verified against primary source |
-| SG Rate | FY2026-27 | 0.12 | [2] s 17A(2), which reads "charge percentage means 12" | 2026-08-23 | Verified against primary source |
+| SG Rate | FY2026-27 | 0.12 | [2] s 17A(2), which reads 'charge percentage means 12' | 2026-08-23 | Verified against primary source |
 | Maximum Contribution Base | FY2026-27 | 270830 | [2] s 10A(5) and s 10A(6) | 2026-08-23 | Formula and annual basis verified against primary source. The concessional contributions cap input confirmed by a person against the ATO page. See note A |
 | Maximum Contribution Base | FY2025-26 | 250000 | [1] s 15, which sets a quarterly base that this row states as its annual equivalent | 2026-08-23 | Formula verified against primary source. The concessional contributions cap input confirmed by a person against the ATO page. See note B |
 | Payroll Tax Rate | FY2025-26 and FY2026-27 | 0.0545 | [3] | 2026-08-23 | Verified against primary source |
@@ -62,9 +62,9 @@ there today.
 
 ### Note A: how 270830 is built
 
-From 1 July 2026 the Treasury Laws Amendment (Payday Superannuation) Act 2025,
-Act No. 57 of 2025, replaced the quarterly maximum contribution base with an
-annual one. The new provision spells it "maximum contributions base", so search
+From 1 July 2026 the *Treasury Laws Amendment (Payday Superannuation) Act 2025*,
+Act No 57 of 2025, replaced the quarterly maximum contribution base with an
+annual one. The new provision spells it 'maximum contributions base', so search
 for that if you go looking. Section 10A(5) of [2] sets the maximum
 contributions base for a payment of qualifying earnings as the concessional
 contributions cap multiplied by 100 and divided by the charge percentage,
@@ -100,14 +100,14 @@ lower of the two. The Act carries the formula, not the dollar figure, which the
 Australian Taxation Office publishes. With a basic concessional contributions
 cap of $30,000 and a charge percentage of 12, the substituted amount is
 $30,000 x 100 / 12 = $250,000 for the year, being $62,500 a quarter. That is the
-same mechanism note A describes for the following year, which is why the two
+same mechanism note A describes for the following year, which is why the 2
 figures move together.
 
 The $30,000 cap could not be read from this machine either, for the same reason
 as note A. It was checked by a person against the ATO rates and thresholds page
 on 23 August 2026 and confirmed.
 
-This row previously shipped 260280, which is four times $65,070, and $65,070 a
+This row previously shipped 260280, which is 4 times $65,070, and $65,070 a
 quarter was the FY2024-25 base. It was a figure carried forward one year too
 far, it reconciled to nothing, and it is recorded here because the model's own
 tests did not catch it: they pinned the budget year only. `test_calculations.py`
@@ -120,12 +120,12 @@ make the model run and to give the seeding process something to uplift.
 
 | Driver | FY2025-26 | FY2026-27 | Used by |
 | --- | --- | --- | --- |
-| Indexation | 0.00 | 0.03 | `model/processes/SeedBudget.ti`, on two of the four measures it carries forward |
+| Indexation | 0.00 | 0.03 | `model/processes/SeedBudget.ti`, on 2 of the four measures it carries forward |
 | Fuel Price | 1.78 | 1.85 | `Revenue.rules`, multiplied by planned litres |
 | Utilisation | 0.72 | 0.75 | Nothing. No rule or process reads it |
 
-`SeedBudget.ti` copies four `Revenue` measures from the source year and applies
-the target year's `Indexation` to two of them, `Charge Rate` and `Plant Hire
+`SeedBudget.ti` copies 4 `Revenue` measures from the source year and applies
+the target year's `Indexation` to 2 of them, `Charge Rate` and `Plant Hire
 Revenue Amount`. `Billable Hours` and `Fuel Litres` carry forward unchanged, so
 budget volumes equal actual volumes and only price moves.
 
@@ -137,13 +137,13 @@ assumption.
 
 ## Sources
 
-1. Superannuation Guarantee (Administration) Act 1992 (Cth), compilation No. 76,
+1. *Superannuation Guarantee (Administration) Act 1992* (Cth), compilation No 76,
    registered as C2022C00095, compilation date 23 February 2022, the version in
    force on 1 July 2025.
    https://www.legislation.gov.au/C2004A04402/2025-07-01/2025-07-01/text/original/epub/OEBPS/document_1/document_1.html
-2. Superannuation Guarantee (Administration) Act 1992 (Cth), compilation No. 78,
+2. *Superannuation Guarantee (Administration) Act 1992* (Cth), compilation No 78,
    registered as C2026C00272, compilation date 1 July 2026, incorporating the
-   Treasury Laws Amendment (Payday Superannuation) Act 2025, Act No. 57 of 2025,
+   *Treasury Laws Amendment (Payday Superannuation) Act 2025*, Act No 57 of 2025,
    assented to 6 November 2025.
    https://www.legislation.gov.au/C2004A04402/2026-07-01/2026-07-01/text/original/epub/OEBPS/document_1/document_1.html
    The compilation numbers and registration codes above come from the version
@@ -157,7 +157,7 @@ assumption.
    Treat anything carrying [4] as unverified. The overtime point is also carried
    by the s 6 definition in [1], which was read at source; the leave loading
    point rests on the ruling alone.
-5. Payroll Tax Act 2007 (NSW), Division 7 of Part 3 for relevant contracts, and
+5. *Payroll Tax Act 2007* (NSW), Division 7 of Part 3 for relevant contracts, and
    the wages provisions for termination payments, fringe benefits and employee
    share scheme grants. **Not read at source.** `legislation.nsw.gov.au` returns
    HTTP 403 to automated fetches. Treat anything carrying [5] as unverified,
@@ -177,7 +177,7 @@ the formula uses.
 - `austlii.edu.au` returned HTTP 403 as well, so the mirrored copy of SGR 2009/2
   was no help either.
 - `legislation.nsw.gov.au` refuses automated fetches in the same way, so the
-  Payroll Tax Act 2007 (NSW) text was not read. The payroll tax rate and
+  *Payroll Tax Act 2007* (NSW) text was not read. The payroll tax rate and
   threshold above rest on the Revenue NSW page, which is the administering
   authority's own publication.
 
@@ -219,7 +219,7 @@ Each simplification below is a deliberate choice, followed by what it costs.
 
 - **The payroll tax base is base pay plus superannuation only.** Fringe benefits
   are taxable wages in New South Wales and are not modelled, and neither are
-  grants under an employee share scheme. The other two headings need
+  grants under an employee share scheme. The other 2 headings need
   qualification. A contractor payment is wages only where the contract is a
   relevant contract under Division 7 of Part 3 of [5], and the exemptions in
   that Division take many payments out again. They are separate tests, and a
@@ -238,7 +238,7 @@ Each simplification below is a deliberate choice, followed by what it costs.
   New South Wales threshold is claimed once for the group by CivilCo in its
   `Corporate` cost centre, as the designated group employer, at one twelfth per
   month. Three costs follow. Cost centre payroll tax is not meaningful on its
-  own: with only two administration staff in CivilCo `Corporate`, that cell
+  own: with only 2 administration staff in CivilCo `Corporate`, that cell
   carries a large negative amount every month and only the group total is
   right. The monthly spread ignores the days in each month that a real monthly
   return uses. Nothing stops the threshold credit exceeding group payroll tax if
