@@ -33,6 +33,7 @@ jobs:
       - run: uv run --locked --extra dev mypy pacioliscube
 
   test:
+    name: test (${{ matrix.os }}, ${{ matrix.python }})
     needs: lint
     timeout-minutes: 30
     runs-on: ${{ matrix.os }}
