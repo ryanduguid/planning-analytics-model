@@ -5,7 +5,7 @@ tree, ``calculate`` prints the value at named cells, and ``report`` prints a
 small profit and loss. Every run reads: nothing here writes a file, touches a
 network, or changes the model it is pointed at.
 
-Argument handling and the three subcommands live here. The statement the report
+Argument handling and the 3 subcommands live here. The statement the report
 prints is in report.py and reading a directory of CSV input is in data.py, so
 this module is the part a reader consults for what the arguments mean and which
 exit code a failure takes.

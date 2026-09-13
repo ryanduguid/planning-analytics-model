@@ -25,10 +25,10 @@ from pacioliscube.rules import decimal_or_raise
 Coordinate = tuple[str, ...]
 
 # The stem of a data file names the cube it feeds. The shipped example files are
-# listed rather than derived, because pnl-direct is not spelled like the cube it
+# listed rather than derived, because pnl-direct is not spelt like the cube it
 # loads. A stem that matches a cube name is taken as well, which is how a model
 # built for a test feeds cubes this map has never heard of, and load_data
-# refuses the case that makes the fallback dangerous: two files, one cube.
+# refuses the case that makes the fallback dangerous: 2 files, one cube.
 CUBE_BY_STEM = {
     "drivers": "Drivers",
     "workforce": "Workforce",
@@ -141,7 +141,7 @@ def load_data(model: Model, directory: Path) -> CellStore:
         raise CliError(EXIT_USAGE, f"{directory}: there are no CSV files there")
 
     # Every file is matched to its cube before any of them is read. A cell store
-    # takes the last write, so two files feeding one cube would leave the cells
+    # takes the last write, so 2 files feeding one cube would leave the cells
     # they share holding whichever file sorted second, and the run would print a
     # wrong figure and exit 0. Guessing which of the two was meant is worse than
     # saying that both are there.

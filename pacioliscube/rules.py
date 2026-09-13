@@ -297,7 +297,7 @@ def decimal_or_raise(
 ) -> Decimal:
     """Parse text as a Decimal, or raise ``raises`` naming where the text came from.
 
-    Every module that reads a figure off disk wants the same three things: the
+    Every module that reads a figure off disk wants the same 3 things: the
     text routed to Decimal without passing through a float, the offending text
     quoted back, and the file, line or row it came from named. ``label`` is the
     word that precedes the text, for a caller whose message says "value".

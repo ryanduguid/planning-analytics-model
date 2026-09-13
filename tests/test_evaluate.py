@@ -134,8 +134,8 @@ def test_evaluation_is_decimal_not_float(tmp_path):
 # holds and 20 when it does not, and each expected figure is derived by hand:
 # 2 = 2 holds and 3 = 2 does not; 3 <> 2 holds and 2 <> 2 does not; 2 < 3 holds
 # and 2 < 2 does not; 2 <= 2 holds and 3 <= 2 does not; 3 > 2 holds and 2 > 2
-# does not; 2 >= 2 holds and 2 >= 3 does not. The three two character operators
-# also prove the tokeniser reads them as one token rather than as two.
+# does not; 2 >= 2 holds and 2 >= 3 does not. The 3 2 character operators
+# also prove the tokeniser reads them as one token rather than as 2.
 @pytest.mark.parametrize(
     "operator, units, price, expected",
     [
@@ -254,7 +254,7 @@ def test_batch_consolidation_preserves_order_weights_and_fresh_inputs():
 
 
 def build_model(root: Path, rules_text: str):
-    """Write a two dimension Sales cube with the given rules and return it loaded."""
+    """Write a 2 dimension Sales cube with the given rules and return it loaded."""
     write_model(
         root,
         rules="SKIPCHECK;\n" + rules_text + "\nFEEDERS;\n['Units'] => ['Amount'];\n",

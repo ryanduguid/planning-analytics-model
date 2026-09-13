@@ -419,7 +419,7 @@ def test_two_data_files_feeding_one_cube_are_a_usage_error(tmp_path):
     # The cell store takes the last write, so a stray file feeding a cube that a
     # shipped file already feeds overwrites the overlap in file name order. One
     # altered row turns Direct Costs from 14,884,800 into 1,014,624,800 and the
-    # run still exits 0, which is why two files for one cube are refused.
+    # run still exits 0, which is why 2 files for one cube are refused.
     data = tmp_path / "data"
     data.mkdir()
     for path in Path(EXAMPLES).glob("*.csv"):
@@ -625,8 +625,8 @@ def test_the_report_returns_one_for_a_version_the_model_does_not_hold():
 
 
 def test_the_report_refuses_a_cube_without_a_year_version_and_account(tmp_path):
-    # Without these three every row would read the same cell, so the report
-    # would print eight identical figures and head them as a statement.
+    # Without these 3 every row would read the same cell, so the report
+    # would print 8 identical figures and head them as a statement.
     root = build_report_model(tmp_path / "model", {"Period": ("FY",), "Entity": ("Group",)})
     data = tmp_path / "data"
     data.mkdir()

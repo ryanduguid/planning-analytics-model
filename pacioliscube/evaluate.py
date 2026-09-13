@@ -272,7 +272,7 @@ class _Engine:
         # validate.py's _validate_cube_rules refuses an unknown cube (DIM001), the
         # wrong number of DB coordinates (ARE001) and a !Dimension the cube does
         # not have (ELE001), and every caller validates before it calculates, so
-        # the three checks below assert what the validator has already settled.
+        # the 3 checks below assert what the validator has already settled.
         target_cube = self.model.cubes.get(reference.cube)
         assert target_cube is not None, (
             f"cube {cube.name!r}: a rule reads cube {reference.cube!r}, "

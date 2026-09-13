@@ -152,7 +152,7 @@ def test_payroll_tax_is_not_charged_on_base_pay_alone():
 
 
 def test_the_payroll_tax_threshold_credit_reaches_the_designated_group_employer():
-    # CivilCo Corporate is the designated group employer. It runs two
+    # CivilCo Corporate is the designated group employer. It runs 2
     # administrators on 150,000, and it claims the whole group's threshold.
     base_pay = Decimal("2") * Decimal("150000") / Decimal("12")
     superannuation = Decimal("2") * Decimal("150000") * Decimal("0.12") / Decimal("12")
@@ -249,14 +249,14 @@ def test_gross_margin_is_revenue_less_direct_costs_at_a_consolidated_node():
     expected = revenue_total - direct_costs
     assert expected == Decimal("1652100")
     assert pnl_node(BUDGET, "Jul", "CivilCo", "All Cost Centres", "Gross Margin") == expected
-    # The two sides the hierarchy subtracts, read back on their own.
+    # The 2 sides the hierarchy subtracts, read back on their own.
     assert pnl_node(BUDGET, "Jul", "CivilCo", "All Cost Centres", "Revenue") == revenue_total
     assert pnl_node(BUDGET, "Jul", "CivilCo", "All Cost Centres", "Direct Costs") == direct_costs
 
 
 def test_group_depreciation_is_the_years_additions_spread_over_each_asset_life():
-    # Five asset classes across the two entities, each month charging a
-    # twelfth of nothing more than additions over life, times twelve months.
+    # Five asset classes across the 2 entities, each month charging a
+    # twelfth of nothing more than additions over life, times 12 months.
     monthly = (
         Decimal("2400000") / Decimal("84")  # CivilCo excavators
         + Decimal("1500000") / Decimal("84")  # CivilCo dozers
@@ -334,7 +334,7 @@ def test_the_contribution_base_cap_binds_in_the_actual_year_at_its_own_figure():
     # Each year carries its own maximum contribution base, so a test pinned only
     # to the budget year cannot see the actual year's figure change. The same
     # supervisor on 290,000 is capped at the FY2025-26 base of 250,000, which is
-    # the 30,000 concessional cap divided by the 12 per cent guarantee rate.
+    # the 30,000 concessional cap divided by the 12% guarantee rate.
     base = driver(ACTUAL, "Maximum Contribution Base")
     assert base == Decimal("250000")
     assert Decimal("290000") > base
@@ -347,7 +347,7 @@ def test_the_contribution_base_cap_binds_in_the_actual_year_at_its_own_figure():
 
 
 def test_each_year_caps_superannuation_at_its_own_contribution_base():
-    # The two years differ, so the same role on the same pay draws a different
+    # The 2 years differ, so the same role on the same pay draws a different
     # charge. A single shared cap would make these equal.
     budget_charge = workforce(
         BUDGET, "Jul", "CivilCo", "Drill and Blast", "Supervisor", "Superannuation Cost"

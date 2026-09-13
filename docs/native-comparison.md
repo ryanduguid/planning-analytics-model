@@ -8,11 +8,11 @@ native results.
 ## Model and inputs
 
 Use an isolated TM1 database with this checkout's `model/` definitions and all
-five `examples/` CSV files, loaded through the model's matching processes.
+5 `examples/` CSV files, loaded through the model's matching processes.
 Do not use a production database or client data. Record the repository commit,
 TM1 server version and build, date of execution and the operator who loaded it.
 
-Every case uses `FY2026-27`, `Budget` and `Jul`. Coordinates after those three
+Every case uses `FY2026-27`, `Budget` and `Jul`. Coordinates after those 3
 elements follow the cube's declared dimension order. The constants below are
 the model's synthetic planning inputs, not maintained statutory rates.
 
@@ -53,7 +53,7 @@ uv run --locked --extra dev pytest -q
 
 ## Complete the native record
 
-Export these eight cells from the isolated native model with full precision.
+Export these 8 cells from the isolated native model with full precision.
 Keep the coordinates, native value, offline value and difference together.
 Record whether every case agrees, including the suppressed-zero view check.
 Investigate any mismatch before claiming compatibility. This limited comparison
