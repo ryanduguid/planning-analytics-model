@@ -33,6 +33,7 @@ jobs:
       - run: uv run --locked --extra dev mypy pacioliscube
 
   test:
+    name: test (${{ matrix.os }}, ${{ matrix.python }})
     needs: lint
     timeout-minutes: 30
     runs-on: ${{ matrix.os }}
@@ -44,16 +45,20 @@ jobs:
         include:
           - os: ubuntu-latest
             python: "3.10"   # the declared floor
+            fetch_depth: 1
           - os: ubuntu-latest
             python: "3.12"
+            fetch_depth: 1
           - os: ubuntu-latest
             python: "3.13"
+            fetch_depth: 0   # diff-cover compares against origin/main
           - os: windows-latest
             python: "3.12"   # where path handling and the ANSI code page diverge
+            fetch_depth: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ matrix.fetch_depth }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
@@ -124,5 +129,5 @@ jobs:
         run: |
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
           python -m venv /tmp/sdistenv
-          /tmp/sdistenv/bin/pip install "pytest>=8" "hypothesis==6.165.10"
+          /tmp/sdistenv/bin/pip install "pytest>=8" "hypothesis==6.167.1"
           cd /tmp/sdist && /tmp/sdistenv/bin/python -m pytest -q
