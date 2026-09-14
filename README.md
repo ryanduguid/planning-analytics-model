@@ -24,8 +24,8 @@ The PaciolisCube budget model. This repository was named PaciolisCube until Sept
 An IBM Planning Analytics budgeting model published as source, with an offline
 engine that computes it and a test suite that asserts the answers.
 
-**Package lifecycle:** source-only. Install from this repository; it is not
-published to PyPI.
+**Package lifecycle:** published. Version 0.1.2 is on PyPI as `pacioliscube`;
+the model and its engine also run from a clone of this repository.
 
 Planning Analytics models usually live inside a server. You can read a rule file
 on GitHub, but you cannot run it, and nothing tells you whether a change to it
@@ -50,6 +50,12 @@ model on every push and fails if a figure moves.
   against the administering authority's own page.
 
 ## Install
+
+```bash
+python -m pip install pacioliscube
+```
+
+Or from a clone, which also gives you the model files and the tests:
 
 ```bash
 git clone https://github.com/ryanduguid/planning-analytics-model.git
