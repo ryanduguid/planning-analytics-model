@@ -209,6 +209,31 @@ def test_a_cross_cube_feeder_naming_an_unknown_cube_is_an_error(tmp_path):
     assert "DIM001" in codes(model)
 
 
+def test_a_cross_cube_feeder_with_swapped_valid_coordinates_is_an_error(tmp_path):
+    # Sales is ordered Colour then Measure. 'Units' and 'Red' both exist, each in the
+    # other's dimension, so checking a coordinate against every target dimension
+    # accepted the pair and the swapped feeder reached deployment.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', 'Units', 'Red');\n",
+    )
+    findings = [f for f in validate_model(model) if f.code == "ELE001"]
+
+    assert [f.message for f in findings] == [
+        "dimension 'Colour' of cube 'Sales' holds no element named 'Units'",
+        "dimension 'Measure' of cube 'Sales' holds no element named 'Red'",
+    ]
+
+
+def test_a_cross_cube_feeder_with_coordinates_in_order_is_clean(tmp_path):
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', 'Red', 'Amount');\n",
+    )
+
+    assert "ELE001" not in codes(model)
+
+
 def test_a_cross_cube_feeder_naming_an_unknown_element_is_an_error(tmp_path):
     model = build_model(
         tmp_path,

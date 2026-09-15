@@ -216,7 +216,11 @@ def _validate_cube_feeders(model: Model, cube: Cube) -> list[Finding]:
                 )
             )
             continue
-        for element in coordinates:
+        # Paired with target.dimensions, because a coordinate names the element of the
+        # dimension at its own position. Accepting an element that any target dimension
+        # holds let DB('Sales', 'Units', 'Red') pass a cube ordered Colour then Measure,
+        # and the swapped feeder reached deployment.
+        for dimension, element in zip(target.dimensions, coordinates):
             if element.startswith("!"):
                 if element[1:] not in cube.dimensions:
                     findings.append(
@@ -228,15 +232,13 @@ def _validate_cube_feeders(model: Model, cube: Cube) -> list[Finding]:
                         )
                     )
                 continue
-            if not any(
-                dimension in model.dimensions and model.hierarchy(dimension).has(element)
-                for dimension in target.dimensions
-            ):
+            if dimension not in model.dimensions or not model.hierarchy(dimension).has(element):
                 findings.append(
                     Finding(
                         ERROR,
                         "ELE001",
-                        f"no dimension of cube {target.name!r} holds an element named {element!r}",
+                        f"dimension {dimension!r} of cube {target.name!r} holds no element "
+                        f"named {element!r}",
                         where,
                     )
                 )
