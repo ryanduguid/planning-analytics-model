@@ -130,12 +130,18 @@ def _is_leaf_cell(model: Model, cube: Cube, coordinate: Coordinate) -> bool:
 
 
 class _Engine:
-    def __init__(self, model: Model, store: CellStore) -> None:
+    def __init__(self, model: Model, store: CellStore, trace: Optional[dict] = None) -> None:
         self.model = model
         self.store = store
+        self.trace = trace
         self.memo: dict[tuple[str, Coordinate], Decimal] = {}
         self.visiting: list[str] = []
         self._positions: dict[tuple[str, int], dict[int, str]] = {}
+
+    def record(self, field: str, **item: object) -> None:
+        """Attach evidence to the cell currently being evaluated."""
+        if self.trace is not None:
+            self.trace[self.visiting[-1]].setdefault(field, []).append(item)
 
     def rule_positions(self, cube: Cube, index: int, rule: Rule) -> dict[int, str]:
         key = (cube.name, index)
@@ -180,18 +186,35 @@ class _Engine:
         if label in self.visiting:
             chain = " -> ".join(self.visiting[self.visiting.index(label):] + [label])
             raise CircularReference(f"a rule depends on its own result: {chain}")
+        evidence: dict = {}
+        if self.trace is not None:
+            evidence = {"cube": cube.name, "coordinate": canonical}
+            self.trace[label] = evidence
         self.visiting.append(label)
         try:
             rule = self.matching_rule(cube, canonical)
             if rule is not None:
+                if self.trace is not None:
+                    evidence["kind"] = "rule"
+                    evidence["rule"] = {
+                        "file": cube.rules_source.relative_to(self.model.root.resolve()).as_posix()
+                        if cube.rules_source is not None else None,
+                        "line": rule.source_line,
+                    }
                 result = self.evaluate_expression(rule.expression, cube, canonical)
             elif _is_leaf_cell(self.model, cube, canonical):
+                if self.trace is not None:
+                    evidence["kind"] = "input" if self.store.has(cube.name, canonical) else "default_zero"
                 result = self.store.get(cube.name, canonical)
             else:
+                if self.trace is not None:
+                    evidence["kind"] = "consolidation"
                 result = self.consolidated(cube, canonical)
         finally:
             self.visiting.pop()
         self.memo[key] = result
+        if self.trace is not None:
+            evidence["value"] = result
         return result
 
     def consolidated(self, cube: Cube, coordinate: Coordinate) -> Decimal:
@@ -204,7 +227,14 @@ class _Engine:
             for edge in hierarchy.children(element):
                 child = list(coordinate)
                 child[position] = hierarchy.resolve(edge.component)
-                total += edge.weight * self.value(cube.name, tuple(child))
+                value = self.value(cube.name, tuple(child))
+                contribution = edge.weight * value
+                total += contribution
+                if self.trace is not None:
+                    self.record(
+                        "contributions", cell=f"{cube.name}{child}", value=value,
+                        weight=edge.weight, contribution=contribution,
+                    )
             return total
         return self.store.get(cube.name, coordinate)
 
@@ -213,29 +243,39 @@ class _Engine:
             return expression.value
         if isinstance(expression, CellRef):
             target_cube, target_coordinate = self.resolve_reference(expression, cube, coordinate)
-            return self.value(target_cube, target_coordinate)
+            result = self.value(target_cube, target_coordinate)
+            if self.trace is not None:
+                self.record("inputs", cell=f"{target_cube}{list(target_coordinate)}", value=result)
+            return result
         if isinstance(expression, BinaryOp):
             left = self.evaluate_expression(expression.left, cube, coordinate)
             right = self.evaluate_expression(expression.right, cube, coordinate)
             if expression.op == "+":
-                return left + right
-            if expression.op == "-":
-                return left - right
-            if expression.op == "*":
-                return left * right
-            if expression.op == "\\":
+                result = left + right
+            elif expression.op == "-":
+                result = left - right
+            elif expression.op == "*":
+                result = left * right
+            elif expression.op == "\\":
                 # TM1's backslash is the safe divide: a zero divisor gives zero.
-                return ZERO if right == ZERO else left / right
-            if expression.op == "/":
+                result = ZERO if right == ZERO else left / right
+            elif expression.op == "/":
                 if right == ZERO:
                     raise EvaluationError(
                         f"cube {cube.name!r} at {list(coordinate)}: division by zero. "
                         "Use the backslash operator where a zero divisor is expected."
                     )
-                return left / right
-            raise EvaluationError(f"unsupported operator {expression.op!r}")
+                result = left / right
+            else:
+                raise EvaluationError(f"unsupported operator {expression.op!r}")
+            if self.trace is not None:
+                self.record("steps", operator=expression.op, left=left, right=right, result=result)
+            return result
         if isinstance(expression, IfExpr):
-            if self.evaluate_condition(expression.condition, cube, coordinate):
+            condition = self.evaluate_condition(expression.condition, cube, coordinate)
+            if self.trace is not None:
+                self.record("steps", operator="IF", branch="then" if condition else "else")
+            if condition:
                 return self.evaluate_expression(expression.then_expr, cube, coordinate)
             return self.evaluate_expression(expression.else_expr, cube, coordinate)
         # A Comparison only ever reaches evaluate_condition, because the grammar
@@ -246,18 +286,22 @@ class _Engine:
         left = self.evaluate_expression(condition.left, cube, coordinate)
         right = self.evaluate_expression(condition.right, cube, coordinate)
         if condition.op == "=":
-            return left == right
-        if condition.op == "<>":
-            return left != right
-        if condition.op == "<":
-            return left < right
-        if condition.op == ">":
-            return left > right
-        if condition.op == "<=":
-            return left <= right
-        if condition.op == ">=":
-            return left >= right
-        raise EvaluationError(f"unsupported comparison {condition.op!r}")
+            result = left == right
+        elif condition.op == "<>":
+            result = left != right
+        elif condition.op == "<":
+            result = left < right
+        elif condition.op == ">":
+            result = left > right
+        elif condition.op == "<=":
+            result = left <= right
+        elif condition.op == ">=":
+            result = left >= right
+        else:
+            raise EvaluationError(f"unsupported comparison {condition.op!r}")
+        if self.trace is not None:
+            self.record("steps", operator=condition.op, left=left, right=right, result=result)
+        return result
 
     def resolve_reference(
         self, reference: CellRef, cube: Cube, coordinate: Coordinate
@@ -358,3 +402,25 @@ def consolidate_many(
     engine = _Engine(model, store)
     for cube, coordinate in cells:
         yield engine.value(cube, coordinate)
+
+
+def explain(model: Model, store: CellStore, cells: Iterable[tuple[str, Coordinate]]) -> dict:
+    """Explain requested cells and their dependencies without changing the inputs.
+
+    As with consolidate, callers validate the model first. Pass the original
+    input store so an unwritten leaf remains distinguishable from an input.
+    Each cell appears once in the evidence, even when several paths read it.
+    Only the requested dependencies are evaluated; unused IF branches are absent.
+    Monetary values, operands and weights remain Decimal objects.
+    """
+    trace: dict = {}
+    engine = _Engine(model, store, trace)
+    requested = []
+    for cube, coordinate in cells:
+        engine.value(cube, coordinate)
+        canonical = [
+            model.hierarchy(dimension).resolve(element)
+            for dimension, element in zip(model.cubes[cube].dimensions, coordinate)
+        ]
+        requested.append(f"{cube}{canonical}")
+    return {"requested": requested, "cells": trace}
