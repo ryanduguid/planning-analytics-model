@@ -271,10 +271,56 @@ def _fed_elements_by_cube(model: Model) -> dict[str, set[str]]:
     return fed
 
 
+def _constraints(model: Model, cube: Cube, area: Area) -> dict[str, set[str]]:
+    """An area as the elements it names per dimension of `cube`.
+
+    An element the model cannot place in one of the cube's dimensions constrains
+    nothing and is left out. An element that exists in more than one dimension takes
+    the first in the cube's own order, as the rest of this module does.
+    """
+    out: dict[str, set[str]] = {}
+    for element in _area_elements(area):
+        if element.startswith("!"):
+            continue
+        for dimension in cube.dimensions:
+            if dimension in model.dimensions and model.hierarchy(dimension).has(element):
+                out.setdefault(dimension, set()).add(element.casefold())
+                break
+    return out
+
+
+def _may_intersect(rule: dict[str, set[str]], feeder: dict[str, set[str]]) -> bool:
+    """False when some dimension both areas constrain has no element in common."""
+    for dimension, elements in rule.items():
+        other = feeder.get(dimension)
+        if other is not None and not (elements & other):
+            return False
+    return True
+
+
+def _fed_areas_by_cube(model: Model) -> dict[str, list[dict[str, set[str]]]]:
+    """Every feeder target area, kept whole and per dimension of the cube it feeds."""
+    by_name = {cube.name.casefold(): cube for cube in model.cubes.values()}
+    fed: dict[str, list[dict[str, set[str]]]] = {}
+    for cube in model.cubes.values():
+        if cube.rules is None:
+            continue
+        for feeder in cube.rules.feeders:
+            target_name = feeder.target_cube or cube.name
+            target = by_name.get(target_name.casefold())
+            if target is None:
+                continue
+            fed.setdefault(target_name.casefold(), []).append(
+                _constraints(model, target, feeder.target)
+            )
+    return fed
+
+
 def _validate_feeding(model: Model) -> list[Finding]:
     """FED001 and FED002: is every calculated area fed, from this cube or another."""
     findings: list[Finding] = []
     fed = _fed_elements_by_cube(model)
+    fed_areas_by_cube = _fed_areas_by_cube(model)
     for cube in model.cubes.values():
         if cube.rules is None:
             continue
@@ -290,9 +336,22 @@ def _validate_feeding(model: Model) -> list[Finding]:
                 )
             )
             continue
+        fed_areas = fed_areas_by_cube.get(cube.name.casefold(), [])
         for rule in cube.rules.rules:
-            targets = {element.casefold() for element in _area_elements(rule.area)}
-            if targets and not targets & fed_here:
+            # Whole areas, not a flat set of names. Sharing any one element name read
+            # as coverage, so a rule for Budget Amount was treated as fed by a feeder
+            # targeting Actual Amount even though their Version selections make the
+            # areas disjoint and the calculated Budget cells stay unfed.
+            rule_area = _constraints(model, cube, rule.area)
+            names = {e.casefold() for e in _area_elements(rule.area) if not e.startswith("!")}
+            # Where nothing in the area can be placed in a dimension, fall back to the
+            # name test: ELE001 already reports the unknown element, and dropping the
+            # warning as well would leave that rule with nothing said about its feeding.
+            covered = (
+                any(_may_intersect(rule_area, area) for area in fed_areas)
+                if rule_area else bool(names & fed_here)
+            )
+            if names and not covered:
                 findings.append(
                     Finding(
                         WARNING,

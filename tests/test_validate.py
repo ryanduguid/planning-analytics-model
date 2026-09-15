@@ -209,6 +209,27 @@ def test_a_cross_cube_feeder_naming_an_unknown_cube_is_an_error(tmp_path):
     assert "DIM001" in codes(model)
 
 
+def test_a_feeder_targeting_a_different_colour_does_not_feed_the_rule(tmp_path):
+    # Sharing one element name read as coverage, so a rule whose area names Red was
+    # treated as fed by a feeder targeting Blue: both mention Amount, and the flat set
+    # of names could not see that the Colour selections make the areas disjoint.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Blue','Amount'];\n",
+    )
+
+    assert "FED002" in codes(model)
+
+
+def test_a_feeder_targeting_the_same_colour_does_feed_the_rule(tmp_path):
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Red','Amount'];\n",
+    )
+
+    assert "FED002" not in codes(model)
+
+
 def test_a_cross_cube_feeder_with_swapped_valid_coordinates_is_an_error(tmp_path):
     # Sales is ordered Colour then Measure. 'Units' and 'Red' both exist, each in the
     # other's dimension, so checking a coordinate against every target dimension
