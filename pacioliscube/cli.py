@@ -1,11 +1,11 @@
 """The command line, being the way a shell script or a CI job drives this package.
 
-Three subcommands. ``validate`` reports what is structurally wrong with a model
-tree, ``calculate`` prints the value at named cells, and ``report`` prints a
-small profit and loss. Every run reads: nothing here writes a file, touches a
+``validate`` reports structural findings, ``calculate`` prints cell values,
+``explain`` shows their calculation evidence, and ``report`` prints a small
+profit and loss. Every run reads: nothing here writes a file, touches a
 network, or changes the model it is pointed at.
 
-Argument handling and the 3 subcommands live here. The statement the report
+Argument handling and the subcommands live here. The statement the report
 prints is in report.py and reading a directory of CSV input is in data.py, so
 this module is the part a reader consults for what the arguments mean and which
 exit code a failure takes.
@@ -31,6 +31,7 @@ prove is wrong, so failing a build on one would make the check useless.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -46,7 +47,7 @@ from pacioliscube.errors import (
     CliError,
     element_or_error,
 )
-from pacioliscube.evaluate import CellStore, EvaluationError, consolidate_many, evaluate
+from pacioliscube.evaluate import CellStore, EvaluationError, consolidate_many, evaluate, explain
 from pacioliscube.model import Cube, Model, ModelError, load_model
 from pacioliscube.validate import ERROR, Finding, validate_model
 
@@ -223,10 +224,22 @@ def _report_command(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _explain_command(args: argparse.Namespace) -> int:
+    model = _load(_model_root(args))
+    _refuse_broken_model(model)
+    data = _directory(args.data, "data")
+    cells = [_parse_cell(model, text) for text in args.cell]
+    evidence = explain(model, load_data(model, data), cells)
+    # JSON numbers cannot preserve Decimal precision in every consumer.
+    # Finish the entire request before printing, so failures leave no partial JSON.
+    print(json.dumps(evidence, default=_plain, indent=2))
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pacioliscube",
-        description="Validate, calculate and report on a Planning Analytics model tree. "
+        description="Validate, calculate, explain and report on a Planning Analytics model tree. "
         "Reads the model and its data, never writes.",
     )
     parser.add_argument("--version", action="version", version=f"pacioliscube {__version__}")
@@ -247,20 +260,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate.set_defaults(handler=_validate_command)
 
-    calculate = with_model_dir(
-        subcommands.add_parser("calculate", help="print the value at one or more cells")
-    )
-    calculate.add_argument(
-        "--data", required=True, metavar="DIR", help="directory of long format CSV input"
-    )
-    calculate.add_argument(
-        "--cell",
-        required=True,
-        action="append",
-        metavar="CUBE:ELEMENT,...",
-        help="a cell to print, given once per cell, as CUBE:element,element,...",
-    )
-    calculate.set_defaults(handler=_calculate_command)
+    for name, description, handler in (
+        ("calculate", "print the value at one or more cells", _calculate_command),
+        ("explain", "print JSON calculation evidence for one or more cells", _explain_command),
+    ):
+        cell_parser = with_model_dir(subcommands.add_parser(name, help=description))
+        cell_parser.add_argument(
+            "--data", required=True, metavar="DIR", help="directory of long format CSV input"
+        )
+        cell_parser.add_argument(
+            "--cell", required=True, action="append", metavar="CUBE:ELEMENT,...",
+            help="a cell to print, given once per cell, as CUBE:element,element,...",
+        )
+        cell_parser.set_defaults(handler=handler)
 
     report_parser = with_model_dir(
         subcommands.add_parser(

@@ -110,6 +110,30 @@ pacioliscube calculate model --data examples --cell "PnL:FY2026-27,Budget,FY,Gro
 Each report line is rounded to whole dollars on its own, so a subtotal can sit a
 dollar away from the lines above it. `calculate` prints the unrounded figure.
 
+Explain the inputs and arithmetic behind a cell:
+
+```bash
+pacioliscube explain model --data examples --cell "PnL:FY2026-27,Budget,Jul,CivilCo,Earthworks,Contract Revenue,Amount"
+```
+
+`explain` prints JSON with the requested cells and a breakdown of their
+dependencies. Each cell records its exact value and whether it came from an
+input, an unwritten cell's default zero, a rule or a weighted consolidation.
+Rules include their model-relative file and line, input cell references, and
+the arithmetic and comparisons actually evaluated. Consolidations list each
+child value, weight and contribution. Shared cells appear once; every weighted
+path still contributes to its parent.
+
+Amounts, operands and weights are decimal strings in JSON. Comparisons remain
+booleans. An `IF` records the selected branch and evaluates only that branch.
+The command validates the whole model, then calculates only the requested cells
+and their dependencies. It does not check unrelated calculations. Repeat
+`--cell` to explain several cells in one run; a failed request emits no partial
+JSON. Large totals can have many dependencies, so start with a monthly cell.
+
+This explains the offline model's calculations. It does not establish the
+correctness of source inputs, accounting treatment or agreement with native TM1.
+
 The offline CSV loader refuses conflicting values for the same cell and names
 both rows. Repeated rows with equal decimal values remain valid, including when
 element names differ only in case or surrounding whitespace.
