@@ -2,12 +2,17 @@
 # Zeroes the pYear, pVersion slice of pCube through a temporary view,
 # so a reload never leaves stale cells behind.
 sView = 'zClearVersion';
+# AsTemporary = 1 on all three. Without it the view and subsets are public, so
+# two concurrent runs share them: one execution can destroy or reassign the
+# other's slice, and the other then fails or zeroes the wrong cells. A temporary
+# subset needs a temporary view. The guard clears a public leftover from an
+# earlier version of this process; a temporary view never collides.
 IF(ViewExists(pCube, sView) = 1);
   ViewDestroy(pCube, sView);
 ENDIF;
-ViewCreate(pCube, sView);
-SubsetCreateByMDX('zClearYear', '{[Year].[' | pYear | ']}');
-SubsetCreateByMDX('zClearVersion', '{[Version].[' | pVersion | ']}');
+ViewCreate(pCube, sView, 1);
+SubsetCreateByMDX('zClearYear', '{[Year].[' | pYear | ']}', 1);
+SubsetCreateByMDX('zClearVersion', '{[Version].[' | pVersion | ']}', 1);
 ViewSubsetAssign(pCube, sView, 'Year', 'zClearYear');
 ViewSubsetAssign(pCube, sView, 'Version', 'zClearVersion');
 ViewZeroOut(pCube, sView);

@@ -2,12 +2,17 @@
 # Exports the pYear, pVersion profit and loss, calculated cells included,
 # as a long format CSV matching the shape the loaders read.
 sView = 'zExportPnL';
+# AsTemporary = 1 on all three. Without it the view and subsets are public, so two
+# concurrent exports share them while assigning different pYear and pVersion, and
+# one export then fails or writes the wrong slice. A temporary subset needs a
+# temporary view. The guard clears a public leftover from an earlier version of
+# this process; a temporary view never collides.
 IF(ViewExists('PnL', sView) = 1);
   ViewDestroy('PnL', sView);
 ENDIF;
-ViewCreate('PnL', sView);
-SubsetCreateByMDX('zExportYear', '{[Year].[' | pYear | ']}');
-SubsetCreateByMDX('zExportVersion', '{[Version].[' | pVersion | ']}');
+ViewCreate('PnL', sView, 1);
+SubsetCreateByMDX('zExportYear', '{[Year].[' | pYear | ']}', 1);
+SubsetCreateByMDX('zExportVersion', '{[Version].[' | pVersion | ']}', 1);
 ViewSubsetAssign('PnL', sView, 'Year', 'zExportYear');
 ViewSubsetAssign('PnL', sView, 'Version', 'zExportVersion');
 ViewExtractSkipCalcsSet('PnL', sView, 0);

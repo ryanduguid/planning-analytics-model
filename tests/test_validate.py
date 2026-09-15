@@ -262,7 +262,10 @@ def test_prose_in_a_comment_is_not_read_as_a_parameter(tmp_path):
 def test_a_hash_inside_a_quoted_string_does_not_start_a_comment(tmp_path):
     model = build_model(
         tmp_path,
-        processes="#Region Prolog\nsTag = 'run #1';\nCellPutN(1, 'Sales', pGhost);\n#EndRegion\n",
+        # pGhost sits on the same line, after the quoted hash. On the next line the
+        # test passed even when a quoted # wrongly started a comment, because only
+        # the rest of that line was discarded.
+        processes="#Region Prolog\nsTag = 'run #1'; CellPutN(1, 'Sales', pGhost);\n#EndRegion\n",
     )
     assert "PRC001" in codes(model)
 
