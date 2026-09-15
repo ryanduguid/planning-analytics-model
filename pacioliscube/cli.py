@@ -49,6 +49,7 @@ from pacioliscube.errors import (
 )
 from pacioliscube.evaluate import CellStore, EvaluationError, consolidate_many, evaluate, explain
 from pacioliscube.model import Cube, Model, ModelError, load_model
+from pacioliscube.rules import RuleSyntaxError
 from pacioliscube.validate import ERROR, Finding, validate_model
 
 DEFAULT_MODEL_ROOT = "model"
@@ -69,7 +70,9 @@ def _model_root(args: argparse.Namespace) -> Path:
 def _load(root: Path) -> Model:
     try:
         return load_model(root)
-    except ModelError as error:
+    except (ModelError, RuleSyntaxError) as error:
+        # RuleSyntaxError subclasses ValueError, not ModelError, so a rules file
+        # outside the grammar used to end in a traceback and exit 1.
         raise CliError(EXIT_INVALID_MODEL, str(error)) from error
     except UnicodeDecodeError as error:
         # A decode error carries the bytes and not the path, and the loader does

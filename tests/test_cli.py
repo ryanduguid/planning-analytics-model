@@ -248,6 +248,17 @@ def test_a_directory_holding_no_manifest_is_an_invalid_model(tmp_path):
     assert "tm1project.json" in err
 
 
+def test_rules_outside_the_grammar_are_an_invalid_model_not_a_traceback(tmp_path):
+    # RuleSyntaxError subclasses ValueError, not ModelError, so it passed through
+    # _load and every handler in main: the CLI ended in a traceback and exit 1
+    # instead of the documented invalid-model exit code.
+    model = build_model(tmp_path, rules="['Red', 'Units'] = N: @;\n")
+    code, _out, err = run("validate", model)
+    assert code == 2
+    assert "Traceback" not in err
+    assert "unexpected character" in err
+
+
 def test_calculate_prints_the_value_at_a_leaf_cell():
     code, out, _err = run("calculate", MODEL, "--data", EXAMPLES, "--cell", CELL)
     assert code == 0

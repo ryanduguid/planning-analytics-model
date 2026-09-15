@@ -110,6 +110,10 @@ pacioliscube calculate model --data examples --cell "PnL:FY2026-27,Budget,FY,Gro
 Each report line is rounded to whole dollars on its own, so a subtotal can sit a
 dollar away from the lines above it. `calculate` prints the unrounded figure.
 
+That block is engine output. The independent arithmetic behind these figures is
+in [native comparison](docs/native-comparison.md), which derives 8 cells from the
+synthetic inputs without the engine, and in the calculation tests.
+
 Explain the inputs and arithmetic behind a cell:
 
 ```bash
