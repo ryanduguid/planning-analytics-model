@@ -1,9 +1,9 @@
 #!/bin/sh
 # Refuse AI authorship credit before a commit is written.
 #
-# Enable once per clone:
+# Install once per clone with:
 #
-#     git config core.hooksPath .githooks
+#     pre-commit install --hook-type pre-commit --hook-type commit-msg
 #
 # This mirrors the "No AI attribution" CI guard so a commit fails here rather
 # than after a push. It checks the two things that guard checks: authorship
@@ -29,7 +29,7 @@ VENDOR='claude|anthropic|codex|openai|cursor|copilot|chatgpt|gemini|devin|codeiu
 DOMAIN='claude\.ai|claude\.com|anthropic\.com|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|windsurf\.com|cognition\.ai|devin\.ai|nousresearch\.com|qodo\.ai|openhands\.dev|all-hands\.dev'
 
 # Vendor words that are not plausible human names, so they can be matched alone.
-SOLE='claude|anthropic|openai|chatgpt|copilot|codex|cursor|codeium|windsurf|antigravity|qodo|openhands|nousresearch'
+SOLE='anthropic|openai|chatgpt|copilot|codex|cursor|codeium|windsurf|antigravity|qodo|openhands|nousresearch'
 
 status=0
 
@@ -40,6 +40,7 @@ ai_name() {
 	printf '%s' "$1" | grep -Eqi \
 		"^($SOLE)\$|^claude (opus|sonnet|haiku|fable)( [0-9.]+)?|\
 ^($VENDOR)[-_ ](code|agent|bot|assist|review)|\
+^(review (bot|agent|fixes))$|\
 ^($VENDOR)([-_ ][a-z0-9]+)*\[bot\]|\
 ^(openai[-_ ]codex|github[-_ ]copilot|qodo[-_ ]code[-_ ]review|gemini[-_ ]code[-_ ]assist)"
 }
@@ -85,10 +86,25 @@ awk -v vendor="$VENDOR" -v domain="$DOMAIN" -v hook="$hook" '
 	/^#/ { next }
 	{
 		line = tolower($0)
-		if (line ~ /^[ \t]*(```|~~~)/) { fence = !fence; next }
-		if (fence) next
+		# Match the same comparable form used by the release scanner.
+		gsub(/\342\200\213/, "", line); gsub(/\342\200\214/, "", line)
+		gsub(/\342\200\215/, "", line); gsub(/\357\273\277/, "", line)
+		if (fence) {
+			trim = line; sub(/^[ \t]*/, "", trim)
+			if (substr(trim, 1, 1) == fencechar) {
+				n = 0; while (substr(trim, n + 1, 1) == fencechar) n++
+				if (n >= fencelen) { fence = 0; next }
+			}
+			next
+		}
+		trim = line; sub(/^[ \t]*/, "", trim)
+		if (substr(trim, 1, 1) == "`" || substr(trim, 1, 1) == "~") {
+			fencechar = substr(trim, 1, 1); n = 0
+			while (substr(trim, n + 1, 1) == fencechar) n++
+			if (n >= 3) { fence = 1; fencelen = n; next }
+		}
 
-		if (line ~ ("^[ \t]*co-?authored-by:.*(" vendor ")"))
+		if (line ~ ("^[ \t]*co-?authored-by:.*(@(" domain ")|\\[bot\\])"))
 			flag("co-author trailer")
 		else if (line ~ ("^[ \t]*(generated|addressed|authored|written|created|produced|reviewed|fixed|resolved|implemented|assisted|handled)[-_ ]by:.*(" vendor ")"))
 			flag("agent by-line trailer")
@@ -96,9 +112,9 @@ awk -v vendor="$VENDOR" -v domain="$DOMAIN" -v hook="$hook" '
 			flag("session trailer")
 		else if (line ~ ("^[ \t]*_?[^a-z0-9]*\xf0\x9f\xa4\x96.*(" vendor ")"))
 			flag("robot emoji credit")
-		else if (line ~ ("^[ \t]*_?(generated|written|created|produced|assisted) (with|by) .*(" vendor ")"))
+		else if (line ~ ("^[ \t]*_?(generated|written|created|produced|assisted|implemented|reviewed|addressed|authored|fixed|resolved|handled) (with|by) .*(" vendor ")"))
 			flag("generated-with footer")
-		else if (line ~ ("^[ \t]*[_<(]*https?://([a-z0-9.-]+\\.)?(" domain ")"))
+		else if (line ~ ("^[ \t]*[_<(]*https?://([a-z0-9.-]+\\.)?(" domain ")($|[/:?#>,.)])"))
 			flag("bare vendor url")
 	}
 	END { exit bad ? 1 : 0 }
