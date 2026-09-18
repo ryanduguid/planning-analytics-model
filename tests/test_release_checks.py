@@ -25,6 +25,8 @@ REQUIRED = {
 class ReleaseChecksTests(unittest.TestCase):
     def test_every_release_caller_requires_its_component_checks(self) -> None:
         workflows = ROOT / ".github" / "workflows"
+        if not workflows.is_dir() and not (ROOT / ".git").exists():
+            self.skipTest("Release workflows are not included in the source distribution")
         callers = sorted(path.name for path in workflows.glob("release*.yml"))
         self.assertEqual(callers, sorted(REQUIRED))
         for filename, expected in REQUIRED.items():
