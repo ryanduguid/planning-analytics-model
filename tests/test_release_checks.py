@@ -28,7 +28,9 @@ class ReleaseChecksTests(unittest.TestCase):
         workflows = ROOT / ".github" / "workflows"
         if not workflows.is_dir() and not (ROOT / ".git").exists():
             self.skipTest("Release workflows are not included in the source distribution")
-        callers = sorted(path.name for path in workflows.glob("release*.yml"))
+        callers = sorted(
+            path.name for path in workflows.glob("release*") if path.suffix in {".yml", ".yaml"}
+        )
         self.assertEqual(callers, sorted(REQUIRED))
         for filename, expected in REQUIRED.items():
             with self.subTest(workflow=filename):
