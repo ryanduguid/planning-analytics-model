@@ -81,3 +81,13 @@ Prose in this repository is Australian English and carries no em dashes.
 
 Report a vulnerability privately through the process in
 [SECURITY.md](SECURITY.md), not in a public issue.
+
+## Release checks
+
+The release caller names the component checks that must have succeeded for the
+exact release commit on `main`. It advances the policy SHA, `required-checks`
+and `actions: read` together. Skipped, missing, cancelled or failed checks block
+publication, including component tests skipped by a path filter. An aggregate
+gates job cannot replace those checks. Before tagging, choose a main-branch
+commit with successful component CI; a successful run for an older commit is
+not evidence for the release. Tags and publication still require explicit approval.
