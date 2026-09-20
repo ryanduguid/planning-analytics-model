@@ -34,10 +34,10 @@ pacioliscube = "pacioliscube.cli:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
-    "ruff==0.16.6",
+    "ruff==0.16.7",
     "mypy==2.3.1",
-    "hypothesis==6.167.1",
-    "mutmut==3.7.0",
+    "hypothesis==6.168.0",
+    "mutmut==3.8.0",
     "coverage==7.16.0",
     "diff-cover==10.5.1",
     "build>=1.6.0",
