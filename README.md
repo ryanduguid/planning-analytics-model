@@ -116,6 +116,9 @@ synthetic inputs without the engine, and in the calculation tests.
 
 Explain the inputs and arithmetic behind a cell:
 
+For changes between two input snapshots, use the
+[scenario comparison command](docs/scenario-comparison.md).
+
 ```bash
 pacioliscube explain model --data examples --cell "PnL:FY2026-27,Budget,Jul,CivilCo,Earthworks,Contract Revenue,Amount"
 ```
