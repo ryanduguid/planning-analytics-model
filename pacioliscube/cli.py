@@ -33,7 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Iterator, Optional, Sequence
 
@@ -249,8 +249,16 @@ def _compare_command(args: argparse.Namespace) -> int:
     changes = []
     for name in dict.fromkeys(previous["requested"]):
         before, after = previous["cells"][name], current["cells"][name]
-        changes.append({"cell": name, "previous": before["value"], "current": after["value"],
-                        "difference": after["value"] - before["value"]})
+        previous_value, current_value = before["value"], after["value"]
+        # The default Decimal context can round otherwise exact snapshot values.
+        # Include every place represented by either operand in the subtraction.
+        highest_place = max(previous_value.adjusted(), current_value.adjusted())
+        lowest_place = min(previous_value.as_tuple().exponent, current_value.as_tuple().exponent)
+        with localcontext() as context:
+            context.prec = highest_place - lowest_place + 1
+            difference = current_value - previous_value
+        changes.append({"cell": name, "previous": previous_value, "current": current_value,
+                        "difference": difference})
     evidence_changes = []
     for name in sorted(previous["cells"].keys() | current["cells"].keys()):
         before, after = previous["cells"].get(name), current["cells"].get(name)
