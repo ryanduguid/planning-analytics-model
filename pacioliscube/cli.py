@@ -239,6 +239,33 @@ def _explain_command(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _compare_command(args: argparse.Namespace) -> int:
+    """Keep both explanations; a changed input is evidence, not a causal attribution."""
+    model = _load(_model_root(args))
+    _refuse_broken_model(model)
+    cells = [_parse_cell(model, text) for text in args.cell]
+    previous = explain(model, load_data(model, _directory(args.previous_data, "previous data")), cells)
+    current = explain(model, load_data(model, _directory(args.current_data, "current data")), cells)
+    changes = []
+    for name in dict.fromkeys(previous["requested"]):
+        before, after = previous["cells"][name], current["cells"][name]
+        changes.append({"cell": name, "previous": before["value"], "current": after["value"],
+                        "difference": after["value"] - before["value"]})
+    evidence_changes = []
+    for name in sorted(previous["cells"].keys() | current["cells"].keys()):
+        before, after = previous["cells"].get(name), current["cells"].get(name)
+        if before != after:
+            evidence_changes.append({"cell": name, "previous": before, "current": after})
+    print(json.dumps({"schema_version": "scenario-comparison.v1", "changes": changes,
+                      "evidence_changes": evidence_changes,
+                      "previous_explanation": previous, "current_explanation": current,
+                      "scope": "Same model, selected cells, offline evaluation only. "
+                               "Overlapping consolidations are not added together. "
+                               "Evidence changes do not attribute causation or prove TM1 agreement."},
+                     default=_plain, indent=2))
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pacioliscube",
@@ -262,6 +289,14 @@ def build_parser() -> argparse.ArgumentParser:
         subcommands.add_parser("validate", help="report structural findings in a model")
     )
     validate.set_defaults(handler=_validate_command)
+
+    comparison = with_model_dir(subcommands.add_parser(
+        "compare", help="compare two data snapshots using the same model and requested cells",
+    ))
+    comparison.add_argument("--previous-data", required=True, metavar="DIR")
+    comparison.add_argument("--current-data", required=True, metavar="DIR")
+    comparison.add_argument("--cell", required=True, action="append", metavar="CUBE:ELEMENT,...")
+    comparison.set_defaults(handler=_compare_command)
 
     for name, description, handler in (
         ("calculate", "print the value at one or more cells", _calculate_command),
