@@ -201,10 +201,14 @@ def test_a_cross_cube_feeder_satisfies_fed002_in_the_target_cube(tmp_path):
     assert "FED002" not in codes(model)
 
 
-@pytest.mark.parametrize("source, fed", [("['Blue','Units']", False), ("['Red','Units']", True)])
+@pytest.mark.parametrize(
+    "source, fed",
+    [("['Blue','Units']", False), ("['Red','Units']", True), ("['Total','Units']", True)],
+)
 def test_a_bang_coordinate_carries_the_source_selection(tmp_path, source, fed):
     # !Colour is the source's current Colour, so a feeder from Blue feeds Blue Amount.
     # Skipping it left Colour unconstrained, and a rule for Red Amount read as fed.
+    # A feeder from Total feeds every leaf under it, Red included.
     model = build_model(
         tmp_path,
         rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Price'];\n",

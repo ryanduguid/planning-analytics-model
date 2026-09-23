@@ -303,8 +303,17 @@ def _positional_constraints(
     out: dict[str, set[str]] = {}
     for dimension, element in zip(cube.dimensions, coordinates):
         if element.startswith("!"):
-            if element[1:] in source:
-                out[dimension] = set(source[element[1:]])
+            name = element[1:]
+            if name in source:
+                # A consolidation on the feeder's left feeds from every leaf below it,
+                # so its leaves are part of the selection the target position takes.
+                # `source` comes from _constraints, which holds model dimensions only.
+                selected = set(source[name])
+                for chosen in source[name]:
+                    selected.update(
+                        leaf.casefold() for leaf in model.hierarchy(name).leaves_under(chosen)
+                    )
+                out[dimension] = selected
         elif dimension in model.dimensions and model.hierarchy(dimension).has(element):
             out[dimension] = {element.casefold()}
     return out
