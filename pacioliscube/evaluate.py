@@ -16,7 +16,7 @@ coordinate is consolidated, the weighted sum of the cells beneath it.
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from typing import Iterable, Iterator, Optional
 
 from pacioliscube.model import Cube, Model, ModelError
@@ -201,7 +201,13 @@ class _Engine:
                         if cube.rules_source is not None else None,
                         "line": rule.source_line,
                     }
-                result = self.evaluate_expression(rule.expression, cube, canonical)
+                try:
+                    result = self.evaluate_expression(rule.expression, cube, canonical)
+                except DecimalException as error:
+                    raise EvaluationError(
+                        f"cube {cube.name!r} at {list(canonical)}: arithmetic failed "
+                        f"({type(error).__name__})"
+                    ) from error
             elif _is_leaf_cell(self.model, cube, canonical):
                 if self.trace is not None:
                     evidence["kind"] = "input" if self.store.has(cube.name, canonical) else "default_zero"
@@ -209,7 +215,13 @@ class _Engine:
             else:
                 if self.trace is not None:
                     evidence["kind"] = "consolidation"
-                result = self.consolidated(cube, canonical)
+                try:
+                    result = self.consolidated(cube, canonical)
+                except DecimalException as error:
+                    raise EvaluationError(
+                        f"cube {cube.name!r} at {list(canonical)}: arithmetic failed "
+                        f"({type(error).__name__})"
+                    ) from error
         finally:
             self.visiting.pop()
         self.memo[key] = result

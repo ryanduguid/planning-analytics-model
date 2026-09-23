@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import MODEL_ROOT, write_model
+from conftest import MEASURES, MODEL_ROOT, write_model
 from pacioliscube import validate as validation
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
@@ -201,12 +201,93 @@ def test_a_cross_cube_feeder_satisfies_fed002_in_the_target_cube(tmp_path):
     assert "FED002" not in codes(model)
 
 
+@pytest.mark.parametrize(
+    "source, fed",
+    [("['Blue','Units']", False), ("['Red','Units']", True), ("['Total','Units']", True)],
+)
+def test_a_bang_coordinate_carries_the_source_selection(tmp_path, source, fed):
+    # !Colour is the source's current Colour, so a feeder from Blue feeds Blue Amount.
+    # Skipping it left Colour unconstrained, and a rule for Red Amount read as fed.
+    # A feeder from Total feeds every leaf under it, Red included.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Price'];\n",
+        extra_files={
+            "cubes/Feeder.json": '{"Name": "Feeder", "Dimensions@Code.links":'
+            ' ["../dimensions/Colour.json", "../dimensions/Measure.json"],'
+            ' "Rules@Code.link": "Feeder.rules"}',
+            "cubes/Feeder.rules": f"SKIPCHECK;\nFEEDERS;\n{source} => DB('Sales', !Colour, 'Amount');\n",
+        },
+        manifest_cubes='"cubes/Sales.json", "cubes/Feeder.json"',
+    )
+    assert ("FED002" in codes(model)) is not fed
+
+
 def test_a_cross_cube_feeder_naming_an_unknown_cube_is_an_error(tmp_path):
     model = build_model(
         tmp_path,
         rules="SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Ghost', !Colour, 'Amount');\n",
     )
     assert "DIM001" in codes(model)
+
+
+def test_a_feeder_targeting_a_different_colour_does_not_feed_the_rule(tmp_path):
+    # Sharing one element name read as coverage, so a rule whose area names Red was
+    # treated as fed by a feeder targeting Blue: both mention Amount, and the flat set
+    # of names could not see that the Colour selections make the areas disjoint.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Blue','Amount'];\n",
+    )
+
+    assert "FED002" in codes(model)
+
+
+def test_a_feeder_targeting_the_same_colour_does_feed_the_rule(tmp_path):
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Red','Amount'];\n",
+    )
+
+    assert "FED002" not in codes(model)
+
+
+def test_a_cross_cube_feeder_with_swapped_valid_coordinates_is_an_error(tmp_path):
+    # Sales is ordered Colour then Measure. 'Units' and 'Red' both exist, each in the
+    # other's dimension, so checking a coordinate against every target dimension
+    # accepted the pair and the swapped feeder reached deployment.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', 'Units', 'Red');\n",
+    )
+    findings = [f for f in validate_model(model) if f.code == "ELE001"]
+
+    assert [f.message for f in findings] == [
+        "dimension 'Colour' of cube 'Sales' holds no element named 'Units'",
+        "dimension 'Measure' of cube 'Sales' holds no element named 'Red'",
+    ]
+
+
+def test_a_cross_cube_feeder_with_coordinates_in_order_is_clean(tmp_path):
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', 'Red', 'Amount');\n",
+    )
+
+    assert "ELE001" not in codes(model)
+
+
+def test_a_db_feeder_constrains_the_dimension_at_each_position(tmp_path):
+    # Red is in both Colour and Measure here. Placing each DB() coordinate in the
+    # first dimension that holds it put both in Colour, so the Measure selection
+    # disappeared and a feeder of Red read as feeding a rule on Price.
+    model = build_model(
+        tmp_path,
+        measures=MEASURES + ', {"Name": "Red", "Type": "Numeric"}',
+        rules="SKIPCHECK;\n['Price'] = N: 1;\nFEEDERS;\n['Units'] => DB('Sales', 'Red', 'Red');\n",
+    )
+
+    assert "FED002" in codes(model)
 
 
 def test_a_cross_cube_feeder_naming_an_unknown_element_is_an_error(tmp_path):
