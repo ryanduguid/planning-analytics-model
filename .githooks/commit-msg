@@ -99,6 +99,10 @@ PATTERNS = [
     ("session trailer", r"^\s*" + VENDOR + r"[-_ ]?(?:session|run|thread|trace|id):"),
     ("robot emoji credit", r"^\s*_?\s*\U0001F916.*" + VENDOR),
     ("generated-with footer", r"^\s*_?" + CREDIT_VERB + r"\s+(?:with|by)\s+\[?[^\]\n]*" + VENDOR),
+    # Prose credits are intentionally line-scoped: a vendor followed by an
+    # authorship verb is a credit, while ordinary product references such as
+    # "Claude Code plugin" remain allowed.
+    ("prose credit", r"^\s*.*\b" + VENDOR + r"\b\s+" + CREDIT_VERB + r"\b"),
     ("bare vendor url", r"^\s*[_<(]*https?://(?:[\w.-]+\.)?" + DOMAIN + r"\b"),
 ]
 RX = [(name, re.compile(p, re.I)) for name, p in PATTERNS]
