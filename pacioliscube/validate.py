@@ -310,9 +310,20 @@ def _fed_areas_by_cube(model: Model) -> dict[str, list[dict[str, set[str]]]]:
             target = by_name.get(target_name.casefold())
             if target is None:
                 continue
-            fed.setdefault(target_name.casefold(), []).append(
-                _constraints(model, target, feeder.target)
-            )
+            if feeder.target_cube is None:
+                constraints = _constraints(model, target, feeder.target)
+            else:
+                # DB feeder coordinates are positional, unlike ordinary areas whose
+                # elements are resolved by the cube's dimension order.
+                constraints = {}
+                for dimension, element in zip(
+                    target.dimensions, _area_elements(feeder.target)
+                ):
+                    if element.startswith("!"):
+                        continue
+                    if dimension in model.dimensions and model.hierarchy(dimension).has(element):
+                        constraints.setdefault(dimension, set()).add(element.casefold())
+            fed.setdefault(target_name.casefold(), []).append(constraints)
     return fed
 
 
