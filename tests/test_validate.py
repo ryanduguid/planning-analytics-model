@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import MODEL_ROOT, write_model
+from conftest import MEASURES, MODEL_ROOT, write_model
 from pacioliscube import validate as validation
 from pacioliscube.model import load_model
 from pacioliscube.validate import validate_model
@@ -253,6 +253,19 @@ def test_a_cross_cube_feeder_with_coordinates_in_order_is_clean(tmp_path):
     )
 
     assert "ELE001" not in codes(model)
+
+
+def test_a_db_feeder_constrains_the_dimension_at_each_position(tmp_path):
+    # Red is in both Colour and Measure here. Placing each DB() coordinate in the
+    # first dimension that holds it put both in Colour, so the Measure selection
+    # disappeared and a feeder of Red read as feeding a rule on Price.
+    model = build_model(
+        tmp_path,
+        measures=MEASURES + ', {"Name": "Red", "Type": "Numeric"}',
+        rules="SKIPCHECK;\n['Price'] = N: 1;\nFEEDERS;\n['Units'] => DB('Sales', 'Red', 'Red');\n",
+    )
+
+    assert "FED002" in codes(model)
 
 
 def test_a_cross_cube_feeder_naming_an_unknown_element_is_an_error(tmp_path):
