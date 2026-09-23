@@ -201,6 +201,24 @@ def test_a_cross_cube_feeder_satisfies_fed002_in_the_target_cube(tmp_path):
     assert "FED002" not in codes(model)
 
 
+@pytest.mark.parametrize("source, fed", [("['Blue','Units']", False), ("['Red','Units']", True)])
+def test_a_bang_coordinate_carries_the_source_selection(tmp_path, source, fed):
+    # !Colour is the source's current Colour, so a feeder from Blue feeds Blue Amount.
+    # Skipping it left Colour unconstrained, and a rule for Red Amount read as fed.
+    model = build_model(
+        tmp_path,
+        rules="SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Price'];\n",
+        extra_files={
+            "cubes/Feeder.json": '{"Name": "Feeder", "Dimensions@Code.links":'
+            ' ["../dimensions/Colour.json", "../dimensions/Measure.json"],'
+            ' "Rules@Code.link": "Feeder.rules"}',
+            "cubes/Feeder.rules": f"SKIPCHECK;\nFEEDERS;\n{source} => DB('Sales', !Colour, 'Amount');\n",
+        },
+        manifest_cubes='"cubes/Sales.json", "cubes/Feeder.json"',
+    )
+    assert ("FED002" in codes(model)) is not fed
+
+
 def test_a_cross_cube_feeder_naming_an_unknown_cube_is_an_error(tmp_path):
     model = build_model(
         tmp_path,

@@ -288,18 +288,24 @@ def _constraints(model: Model, cube: Cube, area: Area) -> dict[str, set[str]]:
 
 
 def _positional_constraints(
-    model: Model, cube: Cube, coordinates: tuple[str, ...]
+    model: Model,
+    cube: Cube,
+    coordinates: tuple[str, ...],
+    source: dict[str, set[str]],
 ) -> dict[str, set[str]]:
     """A DB() target, whose coordinate at each position names that dimension's element.
 
     `_constraints` would place an element found in two dimensions in the first, and
-    the dimension the coordinate really names would then constrain nothing.
+    the dimension the coordinate really names would then constrain nothing. A
+    `!Dim` coordinate carries the current element of the source's `Dim`, so it
+    takes whatever selection the feeder's source area makes on `Dim`, if any.
     """
     out: dict[str, set[str]] = {}
     for dimension, element in zip(cube.dimensions, coordinates):
-        if element.startswith("!") or dimension not in model.dimensions:
-            continue
-        if model.hierarchy(dimension).has(element):
+        if element.startswith("!"):
+            if element[1:] in source:
+                out[dimension] = set(source[element[1:]])
+        elif dimension in model.dimensions and model.hierarchy(dimension).has(element):
             out[dimension] = {element.casefold()}
     return out
 
@@ -328,7 +334,9 @@ def _fed_areas_by_cube(model: Model) -> dict[str, list[dict[str, set[str]]]]:
             coordinates = _area_elements(feeder.target)
             positional = bool(feeder.target_cube) and len(coordinates) == len(target.dimensions)
             fed.setdefault(target_name.casefold(), []).append(
-                _positional_constraints(model, target, coordinates)
+                _positional_constraints(
+                    model, target, coordinates, _constraints(model, cube, feeder.area)
+                )
                 if positional
                 else _constraints(model, target, feeder.target)
             )
