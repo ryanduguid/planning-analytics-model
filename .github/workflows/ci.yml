@@ -29,6 +29,8 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - run: uv run --locked --extra dev ruff check pacioliscube tests
       - run: uv run --locked --extra dev mypy pacioliscube
 
@@ -67,6 +69,8 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - name: run tests
         if: matrix.os != 'ubuntu-latest' || matrix.python != '3.13'
         run: uv run --locked --extra dev --python ${{ matrix.python }} pytest -q
@@ -97,6 +101,8 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - run: uv run --locked --extra dev --with "pip-audit==2.10.1" pip-audit --local --strict
 
   package:
@@ -115,6 +121,8 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+          prune-cache: true
       - run: uv build
       # A wheel that installs but cannot find its own model tree is a broken release,
       # so the real command line runs against the real model here, not a stub.
