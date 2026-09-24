@@ -41,7 +41,7 @@ uv run --locked --extra dev pytest -q
 ```
 
 The same commands CI runs: ruff and mypy in the `lint` job, then the tests on
-Python 3.10, 3.12 and 3.13 (and 3.12 on Windows). Install the git hooks once
+Python 3.10, 3.12, 3.13 and 3.14 (and 3.12 on Windows). Install the git hooks once
 with `uv tool install pre-commit && pre-commit install`; they run the pinned
 ruff check on staged files. The packaging job additionally builds the wheel,
 installs it into a clean environment and runs the real command line against the
