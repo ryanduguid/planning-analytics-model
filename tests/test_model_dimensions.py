@@ -1,5 +1,6 @@
 """Loading dimensions and weighted hierarchies out of git native model source."""
 
+import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -45,6 +46,42 @@ def test_hierarchy_entries_must_be_objects(tmp_path, invalid, collection):
     with pytest.raises(ModelError, match="expected an object") as caught:
         load_dimension(path)
     assert "Test.hierarchies" in str(caught.value)
+
+
+@pytest.mark.parametrize("invalid", [None, 12, "entries", {}, True])
+@pytest.mark.parametrize("collection", ["Elements", "Edges"])
+def test_hierarchy_collections_must_be_lists(tmp_path, invalid, collection):
+    path = write_dimension(tmp_path, "Test", "", "")
+    source = tmp_path / "Test.hierarchies" / "Test.json"
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload[collection] = invalid
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ModelError, match=rf"{collection} must be a list") as caught:
+        load_dimension(path)
+    assert str(source) in str(caught.value)
+
+
+@pytest.mark.parametrize("omitted", [False, True])
+def test_empty_or_omitted_hierarchy_collections_remain_valid(tmp_path, omitted):
+    path = write_dimension(tmp_path, "Test", "", "")
+    source = tmp_path / "Test.hierarchies" / "Test.json"
+    if omitted:
+        source.write_text('{"Name": "Test"}', encoding="utf-8")
+    hierarchy = load_dimension(path).default_hierarchy
+    assert hierarchy.elements == {}
+    assert hierarchy.edges == ()
+
+
+@pytest.mark.parametrize("invalid", [[], {}, None, 12, True])
+def test_element_types_must_be_strings(tmp_path, invalid):
+    path = write_dimension(tmp_path, "Test", '{"Name": "Leaf"}', "")
+    source = tmp_path / "Test.hierarchies" / "Test.json"
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["Elements"][0]["Type"] = invalid
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ModelError, match="has type") as caught:
+        load_dimension(path)
+    assert str(source) in str(caught.value)
 
 
 def test_edge_weights_are_decimal_and_signed():

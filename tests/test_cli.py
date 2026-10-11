@@ -248,6 +248,25 @@ def test_a_directory_holding_no_manifest_is_an_invalid_model(tmp_path):
     assert "tm1project.json" in err
 
 
+@pytest.mark.parametrize(
+    ("field", "invalid"),
+    [("Elements", None), ("Elements", 12), ("Edges", None), ("Edges", 12), ("Type", [])],
+)
+def test_malformed_hierarchy_shapes_are_invalid_models(tmp_path, field, invalid):
+    root = Path(build_model(tmp_path / "model"))
+    source = root / "dimensions" / "Colour.hierarchies" / "Colour.json"
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if field == "Type":
+        payload["Elements"][0][field] = invalid
+    else:
+        payload[field] = invalid
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    code, _out, err = run("validate", str(root))
+    assert code == 2
+    assert str(source) in err
+    assert "Traceback" not in err
+
+
 def test_rules_outside_the_grammar_are_an_invalid_model_not_a_traceback(tmp_path):
     # RuleSyntaxError subclasses ValueError, not ModelError, so it passed through
     # _load and every handler in main: the CLI ended in a traceback and exit 1

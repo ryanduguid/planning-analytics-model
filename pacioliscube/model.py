@@ -212,6 +212,9 @@ def _load_hierarchy(path: Path, dimension_name: str) -> Hierarchy:
         raise ModelError(f"{path}: hierarchy has no Name")
     if not isinstance(name, str):
         raise ModelError(f"{path}: hierarchy Name must be a string")
+    for collection in ("Elements", "Edges"):
+        if collection in payload and not isinstance(payload[collection], list):
+            raise ModelError(f"{path}: hierarchy {collection} must be a list")
     elements = []
     for entry in payload.get("Elements", ()):
         if not isinstance(entry, dict):
@@ -222,7 +225,7 @@ def _load_hierarchy(path: Path, dimension_name: str) -> Hierarchy:
         if not isinstance(element_name, str):
             raise ModelError(f"{path}: element Name must be a string")
         element_type = entry.get("Type", NUMERIC)
-        if element_type not in _ELEMENT_TYPES:
+        if not isinstance(element_type, str) or element_type not in _ELEMENT_TYPES:
             raise ModelError(
                 f"{path}: element {element_name!r} has type {element_type!r}, "
                 f"expected one of {sorted(_ELEMENT_TYPES)}"
