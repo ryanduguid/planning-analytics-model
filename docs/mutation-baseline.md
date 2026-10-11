@@ -11,8 +11,10 @@ uv run --locked --extra dev --python 3.12 mutmut results
 
 ## Baseline
 
-GitHub Actions run [33086803423](https://github.com/ryanduguid/planning-analytics-model/actions/runs/33086803423)
-tested commit `73c411f8ff5af6f4ca30f2e17e0ae39f49746c68` on Ubuntu with Python 3.12.
+GitHub Actions run 33086803423 (27 August 2026) tested commit
+[`73c411f8ff5af6f4ca30f2e17e0ae39f49746c68`](https://github.com/ryanduguid/planning-analytics-model/commit/73c411f8ff5af6f4ca30f2e17e0ae39f49746c68)
+on Ubuntu with Python 3.12. GitHub deletes public workflow runs after 90 days,
+so the figures below are the retained record of both runs.
 The complete run took 38 seconds and produced:
 
 - 424 generated mutants
@@ -30,8 +32,9 @@ rule.
 
 ## Survivor ledger
 
-Every one of the 68 true survivors from follow-up run
-[33087043111](https://github.com/ryanduguid/planning-analytics-model/actions/runs/33087043111)
+Every one of the 68 true survivors from follow-up run 33087043111 (27 August
+2026, commit
+[`e822e393aaafcf7b56114443b15dbb6e78fb39d8`](https://github.com/ryanduguid/planning-analytics-model/commit/e822e393aaafcf7b56114443b15dbb6e78fb39d8))
 is covered by one grouped disposition below. Ranges are inclusive.
 
 | Mutant identifiers | Count | Disposition |
