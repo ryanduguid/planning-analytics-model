@@ -140,6 +140,40 @@ def test_a_component_shared_by_two_parents_is_reported_once(tmp_path):
     assert hierarchy.leaves_under("Top") == ("Leaf",)
 
 
+def test_shared_subtrees_preserve_leaf_order_without_repeated_expansion(tmp_path, monkeypatch):
+    layers = [(f"Left{level}", f"Right{level}") for level in range(12)]
+    names = ["Top", *(name for layer in layers for name in layer), "First", "Second"]
+    elements = [
+        {"Name": name, "Type": "Numeric" if name in {"First", "Second"} else "Consolidated"}
+        for name in names
+    ]
+    edges = [{"ParentName": "Top", "ComponentName": name, "Weight": 1} for name in layers[0]]
+    for parents, children in zip(layers, layers[1:]):
+        edges.extend(
+            {"ParentName": parent, "ComponentName": child, "Weight": 1}
+            for parent in parents for child in children
+        )
+    for parent, children in zip(layers[-1], (("First", "Second"), ("Second", "First"))):
+        edges.extend(
+            {"ParentName": parent, "ComponentName": child, "Weight": 1} for child in children
+        )
+    path = write_dimension(
+        tmp_path, "Shared", ",".join(map(json.dumps, elements)), ",".join(map(json.dumps, edges))
+    )
+    hierarchy = load_dimension(path).default_hierarchy
+    original_children = hierarchy.children
+    expansions = 0
+
+    def counted_children(name):
+        nonlocal expansions
+        expansions += 1
+        return original_children(name)
+
+    monkeypatch.setattr(hierarchy, "children", counted_children)
+    assert hierarchy.leaves_under("top") == ("First", "Second")  # nosec B101: pytest assertion
+    assert expansions <= 2 * len(edges)  # nosec B101: pytest assertion
+
+
 def test_edge_naming_an_unknown_element_is_a_model_error(tmp_path):
     dimension_file = write_dimension(
         tmp_path,

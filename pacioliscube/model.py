@@ -146,10 +146,11 @@ class Hierarchy:
         seen: set[str] = set()
 
         def walk(current: str) -> None:
+            if current in seen:
+                return
+            seen.add(current)
             if self.is_leaf(current):
-                if current not in seen:
-                    seen.add(current)
-                    found.append(current)
+                found.append(current)
                 return
             for edge in self.children(current):
                 walk(self.resolve(edge.component))
