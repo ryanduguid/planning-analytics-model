@@ -58,7 +58,7 @@ def test_hierarchy_collections_must_be_lists(tmp_path, invalid, collection):
     source.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ModelError, match=rf"{collection} must be a list") as caught:
         load_dimension(path)
-    assert str(source) in str(caught.value)
+    assert str(source) in str(caught.value)  # nosec B101: pytest assertion
 
 
 @pytest.mark.parametrize("omitted", [False, True])
@@ -68,8 +68,8 @@ def test_empty_or_omitted_hierarchy_collections_remain_valid(tmp_path, omitted):
     if omitted:
         source.write_text('{"Name": "Test"}', encoding="utf-8")
     hierarchy = load_dimension(path).default_hierarchy
-    assert hierarchy.elements == {}
-    assert hierarchy.edges == ()
+    assert hierarchy.elements == {}  # nosec B101: pytest assertion
+    assert hierarchy.edges == ()  # nosec B101: pytest assertion
 
 
 @pytest.mark.parametrize("invalid", [[], {}, None, 12, True])
@@ -81,7 +81,7 @@ def test_element_types_must_be_strings(tmp_path, invalid):
     source.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ModelError, match="has type") as caught:
         load_dimension(path)
-    assert str(source) in str(caught.value)
+    assert str(source) in str(caught.value)  # nosec B101: pytest assertion
 
 
 def test_edge_weights_are_decimal_and_signed():
