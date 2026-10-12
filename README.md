@@ -27,7 +27,7 @@ The PaciolisCube budget model. This repository was named PaciolisCube until Sept
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned-990024?labelColor=000000&style=flat-square&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)<br>
 [![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=66023C&labelColor=000000&style=flat-square)](https://pypi.org/project/pacioliscube/)
 [![python](https://img.shields.io/badge/python-3.11%2B-66023C?labelColor=000000&style=flat-square)](https://www.python.org/)
-[![licence: MIT](https://img.shields.io/badge/licence-MIT-66023C?labelColor=000000&style=flat-square)](LICENSE)
+[![licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-66023C?labelColor=000000&style=flat-square)](LICENSE)
 
 An IBM Planning Analytics budgeting model published as source, with an offline
 engine that computes it and a test suite that asserts the answers.
@@ -258,4 +258,4 @@ be fetched.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE). If you redistribute this work or build on it, keep the attribution in [NOTICE](NOTICE).
