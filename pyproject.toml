@@ -33,9 +33,9 @@ pacioliscube = "pacioliscube.cli:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
-    "ruff==0.16.9",
-    "mypy==2.3.1",
-    "hypothesis==6.168.2",
+    "ruff==0.16.10",
+    "mypy==2.4.0",
+    "hypothesis==6.168.4",
     "mutmut==3.8.0",
     "coverage==7.16.2",
     "diff-cover==10.6.0",
@@ -62,6 +62,7 @@ include = [
     "/benchmarks",
     "/pacioliscube",
     "/tests",
+    "/fuzz",
     "/model",
     "/examples",
     "/docs",
@@ -98,3 +99,7 @@ pretty = true
 source_paths = ["pacioliscube/"]
 only_mutate = ["pacioliscube/evaluate.py"]
 pytest_add_cli_args_test_selection = ["tests/test_evaluate.py", "tests/test_properties.py"]
+
+[tool.coverage.report]
+# A module's entry guard only calls main(), which the tests call directly.
+exclude_also = ['if __name__ == "__main__":']

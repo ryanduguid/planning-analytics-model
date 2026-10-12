@@ -6,6 +6,8 @@ The latest commit on the default branch. There is no backport branch.
 
 ## Reporting a vulnerability
 
+Report privately at <https://github.com/ryanduguid/planning-analytics-model/security/advisories/new>.
+
 Use GitHub's private vulnerability reporting on this repository. Do not open a
 public issue.
 
