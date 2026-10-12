@@ -98,3 +98,7 @@ pretty = true
 source_paths = ["pacioliscube/"]
 only_mutate = ["pacioliscube/evaluate.py"]
 pytest_add_cli_args_test_selection = ["tests/test_evaluate.py", "tests/test_properties.py"]
+
+[tool.coverage.report]
+# A module's entry guard only calls main(), which the tests call directly.
+exclude_also = ['if __name__ == "__main__":']

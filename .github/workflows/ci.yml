@@ -92,6 +92,9 @@ jobs:
         run: |
           uv run --locked --extra dev --python ${{ matrix.python }} coverage xml --include="pacioliscube/validate.py" -o coverage.xml
           uv run --locked --extra dev --python ${{ matrix.python }} diff-cover coverage.xml --compare-branch=origin/main --branch-coverage --fail-under=100
+      - name: require complete package coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: uv run --locked --extra dev --python ${{ matrix.python }} coverage report --fail-under=100  # NOSONAR: reads the coverage data only
       - name: write whole-package coverage for Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
         run: uv run --locked --extra dev --python ${{ matrix.python }} coverage xml -o coverage-codecov.xml
@@ -175,7 +178,7 @@ jobs:
       - name: install the wheel into a clean environment and run the real command line
         run: |
           python -m venv /tmp/wheelenv
-          /tmp/wheelenv/bin/pip install --no-index --find-links dist pacioliscube
+          /tmp/wheelenv/bin/pip install --no-index dist/pacioliscube-*.whl
           /tmp/wheelenv/bin/pacioliscube validate model
       # An sdist missing tests or fixtures still passes a source checkout run,
       # so the shipped tests are run from the extracted sdist as well.
@@ -183,7 +186,7 @@ jobs:
         run: |
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
           python -m venv /tmp/sdistenv
-          /tmp/sdistenv/bin/pip install "pytest>=8" "hypothesis==6.168.0"
+          /tmp/sdistenv/bin/pip install --require-hashes --requirement requirements-sdist-test.txt
           cd /tmp/sdist && /tmp/sdistenv/bin/python -m pytest -q
 
   tm1git-conformance:
