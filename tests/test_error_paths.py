@@ -98,7 +98,7 @@ def test_the_default_hierarchy_falls_back_to_the_only_one(tmp_path):
     root = write_model(tmp_path)
     _edit_json(_colour_hierarchy(root), lambda h: h.update(Name="Alternate"))
     dimension = load_dimension(root / "dimensions" / "Colour.json")
-    assert dimension.default_hierarchy.name == "Alternate"
+    assert dimension.default_hierarchy.name == "Alternate"  # nosec B101: pytest outcome assertion
 
 
 def test_no_default_hierarchy_among_several_is_refused(tmp_path):
@@ -130,7 +130,7 @@ def test_a_source_tree_without_installation_reports_a_development_version(monkey
 
     monkeypatch.setattr(importlib.metadata, "version", not_installed)
     try:
-        assert importlib.reload(pacioliscube).__version__ == "0.0.0.dev0"
+        assert importlib.reload(pacioliscube).__version__ == "0.0.0.dev0"  # nosec B101: pytest outcome assertion
     finally:
         monkeypatch.undo()
         importlib.reload(pacioliscube)
@@ -149,7 +149,7 @@ def test_data_loader_refusals(tmp_path):
         load_into_store(model, "Budget", empty, CellStore())
     with pytest.raises(CliError, match="the data directory could not be read") as refused:
         load_data(model, tmp_path / "no-such-directory")
-    assert refused.value.code == EXIT_USAGE
+    assert refused.value.code == EXIT_USAGE  # nosec B101: pytest outcome assertion
 
 
 # The engine.
@@ -161,7 +161,7 @@ def test_cell_store_refuses_floats_and_filters_by_cube():
         store.set("Sales", ("Red", "Units"), 1.5)
     store.set("Sales", ("Red", "Units"), Decimal("1"))
     store.set("Plan", ("Red", "Units"), Decimal("2"))
-    assert [value for _, _, value in store.items("Plan")] == [Decimal("2")]
+    assert [value for _, _, value in store.items("Plan")] == [Decimal("2")]  # nosec B101: pytest outcome assertion
 
 
 def _engine(tmp_path, rules=""):
@@ -187,7 +187,7 @@ def test_engine_refuses_an_unknown_cube_and_unsupported_nodes(tmp_path):
 def test_consolidation_of_an_all_leaf_coordinate_reads_the_store(tmp_path):
     model, run = _engine(tmp_path)
     run.store.set("Sales", ("Red", "Units"), Decimal("4"))
-    assert run.consolidated(model.cubes["Sales"], ("Red", "Units")) == Decimal("4")
+    assert run.consolidated(model.cubes["Sales"], ("Red", "Units")) == Decimal("4")  # nosec B101: pytest outcome assertion
 
 
 def test_rule_arithmetic_overflow_is_a_calculation_error(tmp_path):
@@ -225,13 +225,13 @@ def test_rule_syntax_errors(text, message):
 
 def test_negating_a_cell_reference_subtracts_it_from_zero():
     rule = parse_rules("['Amount'] = -['Units'];\n", Path("Sales.rules")).rules[0]
-    assert rule.expression == BinaryOp("-", Number(Decimal("0")), CellRef(None, ("Units",)))
+    assert rule.expression == BinaryOp("-", Number(Decimal("0")), CellRef(None, ("Units",)))  # nosec B101: pytest outcome assertion
 
 
 def test_undefvals_is_accepted_and_ignored():
     rules = parse_rules("UNDEFVALS;\n['Amount'] = 1;\n", Path("Sales.rules"))
-    assert not rules.skipcheck
-    assert len(rules.rules) == 1
+    assert not rules.skipcheck  # nosec B101: pytest outcome assertion
+    assert len(rules.rules) == 1  # nosec B101: pytest outcome assertion
 
 
 # Validation.
@@ -247,19 +247,19 @@ def test_an_element_two_dimensions_hold_is_ambiguous(tmp_path):
         measures=MEASURES + ', {"Name": "Red", "Type": "Numeric"}',
         rules="['Amount'] = ['Red'];\n",
     ))
-    assert any(code == "ARE001" and "'Red' is ambiguous" in message for code, message in _codes(model))
+    assert any(code == "ARE001" and "'Red' is ambiguous" in message for code, message in _codes(model))  # nosec B101: pytest outcome assertion
 
 
 def test_a_db_argument_naming_a_missing_dimension_is_reported(tmp_path):
     model = load_model(write_model(tmp_path, rules="['Amount'] = DB('Sales', !Region, 'Units');\n"))
-    assert ("ELE001", "!Region names a dimension that cube 'Sales' does not have") in _codes(model)
+    assert ("ELE001", "!Region names a dimension that cube 'Sales' does not have") in _codes(model)  # nosec B101: pytest outcome assertion
 
 
 def test_a_feeder_target_naming_a_missing_dimension_is_reported(tmp_path):
     model = load_model(write_model(
         tmp_path, rules="SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', !Region, 'Amount');\n"
     ))
-    assert ("ELE001", "!Region names a dimension that cube 'Sales' does not have") in _codes(model)
+    assert ("ELE001", "!Region names a dimension that cube 'Sales' does not have") in _codes(model)  # nosec B101: pytest outcome assertion
 
 
 # The command line's backstops.
@@ -274,19 +274,19 @@ def test_engine_model_errors_take_the_invalid_model_code(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "evaluate", model_fault)
     with pytest.raises(CliError) as refused:
         cli._evaluate(model, CellStore())
-    assert refused.value.code == EXIT_INVALID_MODEL
+    assert refused.value.code == EXIT_INVALID_MODEL  # nosec B101: pytest outcome assertion
 
     monkeypatch.setattr(cli, "consolidate_many", model_fault)
     with pytest.raises(CliError) as refused:
         list(cli._values(model, CellStore(), [("Sales", ("Red", "Units"))]))
-    assert refused.value.code == EXIT_INVALID_MODEL
+    assert refused.value.code == EXIT_INVALID_MODEL  # nosec B101: pytest outcome assertion
 
 
 def test_a_cell_reference_with_an_empty_element_is_a_usage_error(tmp_path):
     model = load_model(write_model(tmp_path))
     with pytest.raises(CliError, match="has an empty element name") as refused:
         cli._parse_cell(model, "Sales:Red,")
-    assert refused.value.code == EXIT_USAGE
+    assert refused.value.code == EXIT_USAGE  # nosec B101: pytest outcome assertion
 
 
 @pytest.mark.parametrize(
@@ -306,8 +306,8 @@ def test_main_maps_an_unexpected_error_to_its_exit_code(monkeypatch, capsys, err
             return argparse.Namespace(handler=handler)
 
     monkeypatch.setattr(cli, "build_parser", _Parser)
-    assert cli.main(["anything"]) == code
-    assert capsys.readouterr().err == f"pacioliscube: {error}\n"
+    assert cli.main(["anything"]) == code  # nosec B101: pytest outcome assertion
+    assert capsys.readouterr().err == f"pacioliscube: {error}\n"  # nosec B101: pytest outcome assertion
 
 
 def test_consolidation_overflow_is_a_calculation_error(tmp_path):
@@ -327,4 +327,4 @@ def test_a_calculation_error_while_reading_cells_takes_the_calculation_code(tmp_
     monkeypatch.setattr(cli, "consolidate_many", calculation_fault)
     with pytest.raises(CliError) as refused:
         list(cli._values(model, CellStore(), [("Sales", ("Red", "Units"))]))
-    assert refused.value.code == EXIT_CALCULATION
+    assert refused.value.code == EXIT_CALCULATION  # nosec B101: pytest outcome assertion
