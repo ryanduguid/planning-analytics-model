@@ -1,0 +1,3 @@
+SKIPCHECK;
+FEEDERS;
+['Units'] => DB('Sales', !Colour, 'Amount');

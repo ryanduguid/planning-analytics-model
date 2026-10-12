@@ -165,3 +165,9 @@ def test_an_unterminated_string_is_a_syntax_error():
 def test_a_statement_without_an_area_target_is_a_syntax_error():
     with pytest.raises(RuleSyntaxError):
         parse_rules("Amount = N: 1;", INLINE)
+
+
+def test_deeply_nested_rules_are_a_syntax_error_not_a_crash():
+    nested = "['Amount'] = " + "(" * 2000 + "1" + ")" * 2000 + ";\n"
+    with pytest.raises(RuleSyntaxError, match="nested too deeply to read"):
+        parse_rules(nested, Path("Sales.rules"))

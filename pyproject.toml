@@ -62,6 +62,7 @@ include = [
     "/benchmarks",
     "/pacioliscube",
     "/tests",
+    "/fuzz",
     "/model",
     "/examples",
     "/docs",
