@@ -36,8 +36,8 @@ jobs:
           enable-cache: true
           save-cache: ${{ github.ref == 'refs/heads/main' }}
           prune-cache: true
-      - run: uv run --locked --extra dev ruff check pacioliscube tests
-      - run: uv run --locked --extra dev mypy pacioliscube
+      - run: uv run --locked --extra dev ruff check pacioliscube tests  # NOSONAR: read-only job; uv installs the hash-locked set, and --no-build would fail because pyyaml and setproctitle have no Python 3.15 wheel
+      - run: uv run --locked --extra dev mypy pacioliscube  # NOSONAR: read-only job; uv installs the hash-locked set, and --no-build would fail because pyyaml and setproctitle have no Python 3.15 wheel
 
   test:
     name: test (${{ matrix.os }}, ${{ matrix.python }})
@@ -155,7 +155,7 @@ jobs:
           enable-cache: true
           save-cache: ${{ github.ref == 'refs/heads/main' }}
           prune-cache: true
-      - run: uv run --locked --extra dev --with "pip-audit==2.10.1" pip-audit --local --strict
+      - run: uv run --locked --extra dev --with "pip-audit==2.10.1" pip-audit --local --strict  # NOSONAR: read-only job; uv installs the hash-locked set, and --no-build would fail because pyyaml and setproctitle have no Python 3.15 wheel
 
   package:
     timeout-minutes: 30
@@ -218,7 +218,7 @@ jobs:
       - name: compare the engine with tm1gitpy on model/
         env:
           PACIOLISCUBE_REQUIRE_TM1GITPY: "1"
-        run: uv run --locked --extra dev --group tm1git --python 3.13 pytest -q tests/test_tm1_source_form.py
+        run: uv run --locked --extra dev --group tm1git --python 3.13 pytest -q tests/test_tm1_source_form.py  # NOSONAR: read-only job; uv installs the hash-locked set, and --no-build would fail because mdxpy 1.3.2 publishes only an sdist
 
   fuzzing:
     name: fuzz the rules parser

@@ -187,7 +187,7 @@ def main():
         lambda backend: list(backend.consolidate_many(model, inputs[backend], cells)),
         args.repeats, args.memory, list,
     )
-    Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")  # NOSONAR: developer benchmark CLI; the person running it chooses where its report goes
 
 
 if __name__ == "__main__":
