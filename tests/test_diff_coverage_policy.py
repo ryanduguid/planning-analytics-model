@@ -22,7 +22,7 @@ def test_changed_line_coverage_is_scoped_and_fail_closed(repo: Path) -> None:
     assert "fetch-depth: ${{ matrix.fetch_depth }}" in workflow
     # Coverage is measured over the whole package for Codecov; the changed-line
     # gate stays scoped to validate.py through the --include below.
-    assert "--source=pacioliscube -m pytest" in workflow
+    assert "--source=pacioliscube -m pytest" in workflow  # nosec B101: pytest outcome assertion
     assert '--include="pacioliscube/validate.py"' in workflow
     assert "--compare-branch=origin/main" in workflow
     assert "--branch-coverage" in workflow
