@@ -19,7 +19,7 @@ The PaciolisCube budget model. This repository was named PaciolisCube until Sept
 [![tests](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml)
 [![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=5C2D91&labelColor=04001F)](https://pypi.org/project/pacioliscube/)
-[![licence: MIT](https://img.shields.io/badge/licence-MIT-5C2D91.svg?labelColor=04001F)](LICENSE)
+[![licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-5C2D91.svg?labelColor=04001F)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.11%2B-5C2D91.svg?labelColor=04001F)](https://www.python.org/)
 [![Codacy code quality](https://app.codacy.com/project/badge/Grade/85d3cab41a8e4cc5ac3dd47c8996c78e?branch=main)](https://app.codacy.com/gh/ryanduguid/planning-analytics-model/dashboard)
 
@@ -252,4 +252,4 @@ be fetched.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE). If you redistribute this work or build on it, keep the attribution in [NOTICE](NOTICE).
