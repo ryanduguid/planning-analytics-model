@@ -1,0 +1,16 @@
+# Revenue and fuel build: hours and rates in, contract revenue and fuel cost out.
+SKIPCHECK;
+
+['Contract Revenue Amount'] = N: ['Billable Hours'] * ['Charge Rate'];
+
+# Fuel is bought at the planned price held in Drivers, applied to the litres
+# each cost centre expects to burn in the month.
+['Fuel Cost'] = N: ['Fuel Litres'] *
+    DB('Drivers', !Year, !Version, 'Full Year', 'Fuel Price');
+
+FEEDERS;
+['Billable Hours'] => ['Contract Revenue Amount'];
+['Fuel Litres'] => ['Fuel Cost'];
+['Contract Revenue Amount'] => DB('PnL', !Year, !Version, !Period, !Entity, !CostCentre, 'Contract Revenue', 'Amount');
+['Plant Hire Revenue Amount'] => DB('PnL', !Year, !Version, !Period, !Entity, !CostCentre, 'Plant Hire Revenue', 'Amount');
+['Fuel Cost'] => DB('PnL', !Year, !Version, !Period, !Entity, !CostCentre, 'Fuel', 'Amount');

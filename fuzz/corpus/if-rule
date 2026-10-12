@@ -1,0 +1,1 @@
+['Amount'] = IF(['Units'] > 0, ['Units'] * ['Price'], 0);

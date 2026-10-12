@@ -310,12 +310,21 @@ def decimal_or_raise(
 
 def parse_rules(text: str, path: Path) -> RuleSet:
     """Parse a rules file into its SKIPCHECK flag, its rules and its feeders."""
+    # The parser recurses once per nesting level, so deeply nested parentheses
+    # or IFs exhausted the interpreter's stack and escaped as a RecursionError
+    # traceback rather than the syntax error every caller reports.
+    try:
+        return _parse_rules(text, path)
+    except RecursionError as error:
+        raise RuleSyntaxError(f"{path}: rules are nested too deeply to read") from error
+
+
+def _parse_rules(text: str, path: Path) -> RuleSet:
     tokens = _tokenise(text, path)
     parser = _Parser(tokens, path)
-    skipcheck = False
+    skipcheck = in_feeders = False
     rules: list[Rule] = []
     feeders: list[Feeder] = []
-    in_feeders = False
 
     while parser.current.kind != "end":
         token = parser.current
@@ -341,12 +350,11 @@ def parse_rules(text: str, path: Path) -> RuleSet:
             if parser.current.kind == "name" and parser.current.text.upper() == "DB":
                 reference = parser.parse_db()
                 target = Area("", tuple((element,) for element in reference.coordinates))
-                parser.expect("op", ";")
-                feeders.append(Feeder(area, target, line, reference.cube))
+                feeder = Feeder(area, target, line, reference.cube)
             else:
-                target = parser.parse_area()
-                parser.expect("op", ";")
-                feeders.append(Feeder(area, target, line))
+                feeder = Feeder(area, parser.parse_area(), line)
+            parser.expect("op", ";")
+            feeders.append(feeder)
             continue
         if in_feeders:
             raise parser.fail("a statement after FEEDERS must be a feeder using =>", token)

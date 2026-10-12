@@ -1,0 +1,9 @@
+# A deliberately small rules file used by the parser and evaluator tests.
+SKIPCHECK;
+
+['Amount'] = N: ['Units'] * ['Price'];
+['Margin'] = N: ['Amount'] - DB('Cost', !Colour, 'Amount');
+
+FEEDERS;
+['Units'] => ['Amount'];
+['Amount'] => ['Margin'];

@@ -1,0 +1,35 @@
+# Workforce cost build: headcount and pay rates in, employment cost out.
+# Statutory rates come from the Drivers cube as data, never as literals here.
+SKIPCHECK;
+
+# A pay rate is an annual figure held at the Full Year period leaf, so one
+# month of base pay is a twelfth of headcount times rate.
+['Base Pay'] = N: ['Headcount'] *
+    DB('Workforce', !Year, !Version, 'Full Year', !Entity, !CostCentre, !Role, 'Base Pay Rate') / 12;
+
+# Superannuation guarantee on ordinary pay, with the earnings base capped at
+# the annual maximum contribution base. Pay is even across the year in this
+# model, so capping the annual rate is the same as capping cumulative earnings.
+['Superannuation Cost'] = N: ['Headcount'] *
+    IF( DB('Workforce', !Year, !Version, 'Full Year', !Entity, !CostCentre, !Role, 'Base Pay Rate') >
+        DB('Drivers', !Year, !Version, 'Full Year', 'Maximum Contribution Base'),
+        DB('Drivers', !Year, !Version, 'Full Year', 'Maximum Contribution Base'),
+        DB('Workforce', !Year, !Version, 'Full Year', !Entity, !CostCentre, !Role, 'Base Pay Rate') )
+    * DB('Drivers', !Year, !Version, 'Full Year', 'SG Rate') / 12;
+
+# New South Wales payroll tax is levied on wages including superannuation, so
+# the taxable base here is base pay grossed up by the superannuation charge.
+# The annual threshold is claimed centrally in the PnL cube, not here.
+['Payroll Tax Cost'] = N: ( ['Base Pay'] + ['Superannuation Cost'] ) *
+    DB('Drivers', !Year, !Version, 'Full Year', 'Payroll Tax Rate');
+
+['Total Employment Cost'] = N: ['Base Pay'] + ['Superannuation Cost'] + ['Payroll Tax Cost'];
+
+FEEDERS;
+['Headcount'] => ['Base Pay'];
+['Base Pay'] => ['Superannuation Cost'];
+['Base Pay'] => ['Payroll Tax Cost'];
+['Base Pay'] => ['Total Employment Cost'];
+['Base Pay'] => DB('PnL', !Year, !Version, !Period, !Entity, !CostCentre, 'Wages and Salaries', 'Amount');
+['Superannuation Cost'] => DB('PnL', !Year, !Version, !Period, !Entity, !CostCentre, 'Superannuation', 'Amount');
+['Payroll Tax Cost'] => DB('PnL', !Year, !Version, !Period, !Entity, !CostCentre, 'Payroll Tax', 'Amount');

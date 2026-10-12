@@ -1,0 +1,53 @@
+# The reporting cube. Calculated profit and loss lines pull from their source
+# cubes; overhead lines with no rule are loaded directly. Feeders for these
+# rules live in the source cubes, which is where TM1 wants a cross cube feed.
+SKIPCHECK;
+
+# The New South Wales payroll tax threshold is claimed once for the whole
+# group by the designated group employer, held in its corporate cost centre.
+# A monthly return's tax is its days' share of the tax for the whole financial
+# year (Payroll Tax Act 2007 (NSW), Schedule 2 clauses 2 and 3); with the tax
+# linear in wages above the threshold, the credit takes the same share. The
+# annual credit is divided by the financial year's days over the month's days:
+# the year's days are their own input at Full Year, not the sum of the months,
+# so a missing month cannot shrink the year for the others. A year and version
+# with no threshold get no credit. One with a threshold needs every month's
+# Days and the year's: a missing one divides by zero, which TM1 shows as
+# undefined (N/A) and the repository's evaluator refuses. Full Year holds the
+# annual inputs rather than a month, so it takes no share. The threshold feeds
+# these cells from Drivers.rules. These statements must come before the general
+# payroll tax pull below, because the first matching statement wins.
+['CivilCo', 'Corporate', 'Payroll Tax', 'Amount', 'Full Year'] = N:
+    DB('Workforce', !Year, !Version, !Period, 'CivilCo', 'Corporate', 'All Roles', 'Payroll Tax Cost');
+
+['CivilCo', 'Corporate', 'Payroll Tax', 'Amount'] = N:
+    DB('Workforce', !Year, !Version, !Period, 'CivilCo', 'Corporate', 'All Roles', 'Payroll Tax Cost')
+    - IF( DB('Drivers', !Year, !Version, 'Full Year', 'Payroll Tax Threshold') = 0,
+          0,
+          DB('Drivers', !Year, !Version, 'Full Year', 'Payroll Tax Threshold')
+          * DB('Drivers', !Year, !Version, 'Full Year', 'Payroll Tax Rate')
+          / ( DB('Drivers', !Year, !Version, 'Full Year', 'Days')
+              / DB('Drivers', !Year, !Version, !Period, 'Days') ) );
+
+['Payroll Tax', 'Amount'] = N:
+    DB('Workforce', !Year, !Version, !Period, !Entity, !CostCentre, 'All Roles', 'Payroll Tax Cost');
+
+['Contract Revenue', 'Amount'] = N:
+    DB('Revenue', !Year, !Version, !Period, !Entity, !CostCentre, 'Contract Revenue Amount');
+
+['Plant Hire Revenue', 'Amount'] = N:
+    DB('Revenue', !Year, !Version, !Period, !Entity, !CostCentre, 'Plant Hire Revenue Amount');
+
+['Fuel', 'Amount'] = N:
+    DB('Revenue', !Year, !Version, !Period, !Entity, !CostCentre, 'Fuel Cost');
+
+['Wages and Salaries', 'Amount'] = N:
+    DB('Workforce', !Year, !Version, !Period, !Entity, !CostCentre, 'All Roles', 'Base Pay');
+
+['Superannuation', 'Amount'] = N:
+    DB('Workforce', !Year, !Version, !Period, !Entity, !CostCentre, 'All Roles', 'Superannuation Cost');
+
+# Depreciation is held in each entity's workshop cost centre. Other cost
+# centres carry no depreciation rule, so their cells stay loadable.
+['Workshop', 'Depreciation', 'Amount'] = N:
+    DB('Capex', !Year, !Version, !Period, !Entity, 'All Fleet', 'Depreciation Charge');
