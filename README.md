@@ -17,6 +17,7 @@
 The PaciolisCube budget model. This repository was named PaciolisCube until September 2026; the old URL redirects.
 
 [![tests](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/ryanduguid/planning-analytics-model/graph/badge.svg)](https://codecov.io/gh/ryanduguid/planning-analytics-model)
 [![CodeQL](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml)
 [![Snyk](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml/badge.svg?branch=main)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml)
 [![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=5C2D91&labelColor=04001F)](https://pypi.org/project/pacioliscube/)
