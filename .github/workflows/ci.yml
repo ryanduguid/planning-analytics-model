@@ -92,6 +92,9 @@ jobs:
         run: |
           uv run --locked --extra dev --python ${{ matrix.python }} coverage xml --include="pacioliscube/validate.py" -o coverage.xml
           uv run --locked --extra dev --python ${{ matrix.python }} diff-cover coverage.xml --compare-branch=origin/main --branch-coverage --fail-under=100
+      - name: require complete package coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: uv run --locked --extra dev --python ${{ matrix.python }} coverage report --fail-under=100  # NOSONAR: reads the coverage data only
       - name: write whole-package coverage for Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
         run: uv run --locked --extra dev --python ${{ matrix.python }} coverage xml -o coverage-codecov.xml
