@@ -175,7 +175,7 @@ jobs:
       - name: install the wheel into a clean environment and run the real command line
         run: |
           python -m venv /tmp/wheelenv
-          /tmp/wheelenv/bin/pip install --no-index --find-links dist pacioliscube
+          /tmp/wheelenv/bin/pip install --no-index dist/pacioliscube-*.whl
           /tmp/wheelenv/bin/pacioliscube validate model
       # An sdist missing tests or fixtures still passes a source checkout run,
       # so the shipped tests are run from the extracted sdist as well.
@@ -183,7 +183,7 @@ jobs:
         run: |
           mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
           python -m venv /tmp/sdistenv
-          /tmp/sdistenv/bin/pip install "pytest>=8" "hypothesis==6.168.0"
+          /tmp/sdistenv/bin/pip install --require-hashes --requirement requirements-sdist-test.txt
           cd /tmp/sdist && /tmp/sdistenv/bin/python -m pytest -q
 
   tm1git-conformance:
