@@ -16,18 +16,18 @@
 
 The PaciolisCube budget model. This repository was named PaciolisCube until September 2026; the old URL redirects.
 
-[![tests](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
-[![Codecov](https://codecov.io/gh/ryanduguid/planning-analytics-model/graph/badge.svg)](https://codecov.io/gh/ryanduguid/planning-analytics-model)
-[![CodeQL](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml/badge.svg)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml)
-[![Snyk](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml/badge.svg?branch=main)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml)
-[![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=66023C&labelColor=000000)](https://pypi.org/project/pacioliscube/)
-[![licence: MIT](https://img.shields.io/badge/licence-MIT-66023C.svg?labelColor=000000)](LICENSE)
-[![python](https://img.shields.io/badge/python-3.11%2B-66023C.svg?labelColor=000000)](https://www.python.org/)
-[![Codacy code quality](https://app.codacy.com/project/badge/Grade/85d3cab41a8e4cc5ac3dd47c8996c78e?branch=main)](https://app.codacy.com/gh/ryanduguid/planning-analytics-model/dashboard)
-[![SonarCloud](https://img.shields.io/sonar/quality_gate/ryanduguid_planning-analytics-model?server=https%3A%2F%2Fsonarcloud.io&label=SonarCloud&labelColor=000000)](https://sonarcloud.io/summary/new_code?id=ryanduguid_planning-analytics-model)
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-release%20files%20scanned-66023C?labelColor=000000&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ryanduguid/planning-analytics-model/badge)](https://scorecard.dev/viewer/?uri=github.com/ryanduguid/planning-analytics-model)
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://github.com/ryanduguid/planning-analytics-model/attestations)
+[![tests](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/ci.yml?branch=main&label=tests&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/ryanduguid/planning-analytics-model?label=coverage&labelColor=000000&style=flat-square)](https://codecov.io/gh/ryanduguid/planning-analytics-model)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/codeql.yml?branch=main&label=CodeQL&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml)
+[![Snyk](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/snyk.yml?branch=main&label=Snyk&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml)
+[![SonarCloud](https://img.shields.io/sonar/quality_gate/ryanduguid_planning-analytics-model?server=https%3A%2F%2Fsonarcloud.io&label=SonarCloud&labelColor=000000&style=flat-square)](https://sonarcloud.io/summary/new_code?id=ryanduguid_planning-analytics-model)
+[![Codacy code quality](https://img.shields.io/codacy/grade/85d3cab41a8e4cc5ac3dd47c8996c78e?label=Codacy&labelColor=000000&style=flat-square)](https://app.codacy.com/gh/ryanduguid/planning-analytics-model/dashboard)<br>
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/ryanduguid/planning-analytics-model?label=Scorecard&labelColor=000000&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/ryanduguid/planning-analytics-model)
+[![SLSA 3](https://img.shields.io/badge/SLSA-level%203-990024?labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/attestations)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned-990024?labelColor=000000&style=flat-square&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)<br>
+[![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=66023C&labelColor=000000&style=flat-square)](https://pypi.org/project/pacioliscube/)
+[![python](https://img.shields.io/badge/python-3.11%2B-66023C?labelColor=000000&style=flat-square)](https://www.python.org/)
+[![licence: MIT](https://img.shields.io/badge/licence-MIT-66023C?labelColor=000000&style=flat-square)](LICENSE)
 
 An IBM Planning Analytics budgeting model published as source, with an offline
 engine that computes it and a test suite that asserts the answers.
