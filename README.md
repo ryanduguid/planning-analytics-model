@@ -23,6 +23,7 @@ The PaciolisCube budget model. This repository was named PaciolisCube until Sept
 [![SonarCloud](https://img.shields.io/sonar/quality_gate/ryanduguid_planning-analytics-model?server=https%3A%2F%2Fsonarcloud.io&label=SonarCloud&labelColor=000000&style=flat-square)](https://sonarcloud.io/summary/new_code?id=ryanduguid_planning-analytics-model)
 [![Codacy code quality](https://img.shields.io/codacy/grade/85d3cab41a8e4cc5ac3dd47c8996c78e?label=Codacy&labelColor=000000&style=flat-square)](https://app.codacy.com/gh/ryanduguid/planning-analytics-model/dashboard)<br>
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/ryanduguid/planning-analytics-model?label=Scorecard&labelColor=000000&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/ryanduguid/planning-analytics-model)
+[![OpenSSF Best Practices](https://img.shields.io/cii/level/15428?label=Best%20Practices&labelColor=000000&style=flat-square)](https://www.bestpractices.dev/projects/15428)
 [![SLSA 3](https://img.shields.io/badge/SLSA-level%203-990024?labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/attestations)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned-990024?labelColor=000000&style=flat-square&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)<br>
 [![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=66023C&labelColor=000000&style=flat-square)](https://pypi.org/project/pacioliscube/)
