@@ -310,6 +310,16 @@ def decimal_or_raise(
 
 def parse_rules(text: str, path: Path) -> RuleSet:
     """Parse a rules file into its SKIPCHECK flag, its rules and its feeders."""
+    # The parser recurses once per nesting level, so deeply nested parentheses
+    # or IFs exhausted the interpreter's stack and escaped as a RecursionError
+    # traceback rather than the syntax error every caller reports.
+    try:
+        return _parse_rules(text, path)
+    except RecursionError as error:
+        raise RuleSyntaxError(f"{path}: rules are nested too deeply to read") from error
+
+
+def _parse_rules(text: str, path: Path) -> RuleSet:
     tokens = _tokenise(text, path)
     parser = _Parser(tokens, path)
     skipcheck = False

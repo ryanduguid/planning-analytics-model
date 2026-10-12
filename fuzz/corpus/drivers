@@ -1,0 +1,12 @@
+# Drivers holds planning inputs and calculates nothing; this file only carries
+# feeders. TM1 ignores every feeder in a rules file without SKIPCHECK.
+# SKIPCHECK also restores sparse consolidation, which leaves Drivers' figures
+# unchanged, because every Drivers cell is stored.
+# The New South Wales threshold credit in PnL reads the threshold from here,
+# and the Workforce payroll tax feeder does not reach it when the designated
+# group employer's own payroll tax is nil. A threshold therefore feeds the
+# credit's FY consolidation, which feeds each of its months.
+SKIPCHECK;
+
+FEEDERS;
+['Full Year', 'Payroll Tax Threshold'] => DB('PnL', !Year, !Version, 'FY', 'CivilCo', 'Corporate', 'Payroll Tax', 'Amount');
