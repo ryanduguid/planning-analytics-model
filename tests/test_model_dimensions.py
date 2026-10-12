@@ -1,5 +1,6 @@
 """Loading dimensions and weighted hierarchies out of git native model source."""
 
+import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -45,6 +46,42 @@ def test_hierarchy_entries_must_be_objects(tmp_path, invalid, collection):
     with pytest.raises(ModelError, match="expected an object") as caught:
         load_dimension(path)
     assert "Test.hierarchies" in str(caught.value)
+
+
+@pytest.mark.parametrize("invalid", [None, 12, "entries", {}, True])
+@pytest.mark.parametrize("collection", ["Elements", "Edges"])
+def test_hierarchy_collections_must_be_lists(tmp_path, invalid, collection):
+    path = write_dimension(tmp_path, "Test", "", "")
+    source = tmp_path / "Test.hierarchies" / "Test.json"
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload[collection] = invalid
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ModelError, match=rf"{collection} must be a list") as caught:
+        load_dimension(path)
+    assert str(source) in str(caught.value)  # nosec B101: pytest assertion
+
+
+@pytest.mark.parametrize("omitted", [False, True])
+def test_empty_or_omitted_hierarchy_collections_remain_valid(tmp_path, omitted):
+    path = write_dimension(tmp_path, "Test", "", "")
+    source = tmp_path / "Test.hierarchies" / "Test.json"
+    if omitted:
+        source.write_text('{"Name": "Test"}', encoding="utf-8")
+    hierarchy = load_dimension(path).default_hierarchy
+    assert hierarchy.elements == {}  # nosec B101: pytest assertion
+    assert hierarchy.edges == ()  # nosec B101: pytest assertion
+
+
+@pytest.mark.parametrize("invalid", [[], {}, None, 12, True])
+def test_element_types_must_be_strings(tmp_path, invalid):
+    path = write_dimension(tmp_path, "Test", '{"Name": "Leaf"}', "")
+    source = tmp_path / "Test.hierarchies" / "Test.json"
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["Elements"][0]["Type"] = invalid
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ModelError, match="has type") as caught:
+        load_dimension(path)
+    assert str(source) in str(caught.value)  # nosec B101: pytest assertion
 
 
 def test_edge_weights_are_decimal_and_signed():
@@ -101,6 +138,40 @@ def test_a_component_shared_by_two_parents_is_reported_once(tmp_path):
     )
     hierarchy = load_dimension(dimension_file).default_hierarchy
     assert hierarchy.leaves_under("Top") == ("Leaf",)
+
+
+def test_shared_subtrees_preserve_leaf_order_without_repeated_expansion(tmp_path, monkeypatch):
+    layers = [(f"Left{level}", f"Right{level}") for level in range(12)]
+    names = ["Top", *(name for layer in layers for name in layer), "First", "Second"]
+    elements = [
+        {"Name": name, "Type": "Numeric" if name in {"First", "Second"} else "Consolidated"}
+        for name in names
+    ]
+    edges = [{"ParentName": "Top", "ComponentName": name, "Weight": 1} for name in layers[0]]
+    for parents, children in zip(layers, layers[1:]):
+        edges.extend(
+            {"ParentName": parent, "ComponentName": child, "Weight": 1}
+            for parent in parents for child in children
+        )
+    for parent, children in zip(layers[-1], (("First", "Second"), ("Second", "First"))):
+        edges.extend(
+            {"ParentName": parent, "ComponentName": child, "Weight": 1} for child in children
+        )
+    path = write_dimension(
+        tmp_path, "Shared", ",".join(map(json.dumps, elements)), ",".join(map(json.dumps, edges))
+    )
+    hierarchy = load_dimension(path).default_hierarchy
+    original_children = hierarchy.children
+    expansions = 0
+
+    def counted_children(name):
+        nonlocal expansions
+        expansions += 1
+        return original_children(name)
+
+    monkeypatch.setattr(hierarchy, "children", counted_children)
+    assert hierarchy.leaves_under("top") == ("First", "Second")  # nosec B101: pytest assertion
+    assert expansions <= 2 * len(edges)  # nosec B101: pytest assertion
 
 
 def test_edge_naming_an_unknown_element_is_a_model_error(tmp_path):
