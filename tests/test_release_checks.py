@@ -16,11 +16,8 @@ REQUIRED = {
         ".github/workflows/ci.yml: dependency-audit",
         ".github/workflows/ci.yml: lint",
         ".github/workflows/ci.yml: package",
-        ".github/workflows/ci.yml: test (ubuntu-latest, 3.11)",
-        ".github/workflows/ci.yml: test (ubuntu-latest, 3.12)",
-        ".github/workflows/ci.yml: test (ubuntu-latest, 3.13)",
         ".github/workflows/ci.yml: test (ubuntu-latest, 3.14)",
-        ".github/workflows/ci.yml: test (windows-latest, 3.12)",
+        ".github/workflows/ci.yml: test (windows-latest, 3.14)",
         ".github/workflows/ci.yml: tests-gates",
         ".github/workflows/codeql.yml: analyse",
         ".github/workflows/codeql.yml: codeql-gates"

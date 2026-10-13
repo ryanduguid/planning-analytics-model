@@ -16,8 +16,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# CI follows maintenance releases; local development pins the patch.
+env:
+  UV_PYTHON: "3.14"
+
 jobs:
   lint:
+    env:
+      UV_PYTHON: "3.15"
     timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
@@ -40,6 +46,8 @@ jobs:
       - run: uv run --locked --extra dev mypy pacioliscube  # NOSONAR: unprivileged job; uv installs the hash-locked set
 
   test:
+    env:
+      UV_PYTHON: "${{ matrix.python }}"
     name: test (${{ matrix.os }}, ${{ matrix.python }})
     needs: lint
     timeout-minutes: 30
@@ -51,22 +59,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            python: "3.11"   # the declared floor
-            fetch_depth: 1
-          - os: ubuntu-latest
-            python: "3.12"
-            fetch_depth: 1
-          - os: ubuntu-latest
-            python: "3.13"
-            fetch_depth: 0   # diff-cover compares against origin/main
-          - os: ubuntu-latest
-            python: "3.14"
-            fetch_depth: 1
+            python: "3.14"   # the declared floor and coverage producer
+            fetch_depth: 0
           - os: ubuntu-latest
             python: "3.15"
             fetch_depth: 1
           - os: windows-latest
-            python: "3.12"   # where path handling and the ANSI code page diverge
+            python: "3.14"   # where path handling and the ANSI code page diverge
             fetch_depth: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -84,26 +83,26 @@ jobs:
           save-cache: ${{ github.ref == 'refs/heads/main' }}
           prune-cache: true
       - name: run tests
-        if: matrix.os != 'ubuntu-latest' || matrix.python != '3.13'
+        if: matrix.os != 'ubuntu-latest' || matrix.python != '3.14'
         run: uv run --locked --extra dev --python ${{ matrix.python }} pytest -q
       - name: run tests with whole-package branch coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
         run: >-
           uv run --locked --extra dev --python ${{ matrix.python }}
           coverage run --branch --source=pacioliscube -m pytest -q
       - name: require complete changed-line coverage in validation logic
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
         run: |
           uv run --locked --extra dev --python ${{ matrix.python }} coverage xml --include="pacioliscube/validate.py" -o coverage.xml
           uv run --locked --extra dev --python ${{ matrix.python }} diff-cover coverage.xml --compare-branch=origin/main --branch-coverage --fail-under=100
       - name: require complete package coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
         run: uv run --locked --extra dev --python ${{ matrix.python }} coverage report --fail-under=100  # NOSONAR: reads the coverage data only
       - name: write whole-package coverage for Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
         run: uv run --locked --extra dev --python ${{ matrix.python }} coverage xml -o coverage-codecov.xml
       - name: keep the coverage report for the Codecov upload
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-codecov
@@ -137,6 +136,8 @@ jobs:
           fail_ci_if_error: true
 
   dependency-audit:
+    env:
+      UV_PYTHON: "3.15"
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
@@ -158,6 +159,8 @@ jobs:
       - run: uv run --locked --extra dev --with "pip-audit==2.10.1" pip-audit --local --strict  # NOSONAR: unprivileged read-only audit job
 
   package:
+    env:
+      UV_PYTHON: "3.15"
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
@@ -208,7 +211,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.5"
@@ -218,7 +221,7 @@ jobs:
       - name: compare the engine with tm1gitpy on model/
         env:
           PACIOLISCUBE_REQUIRE_TM1GITPY: "1"
-        run: uv run --locked --extra dev --group tm1git --python 3.13 pytest -q tests/test_tm1_source_form.py  # NOSONAR: unprivileged job; uv installs the hash-locked set
+        run: uv run --locked --extra dev --group tm1git --python 3.14 pytest -q tests/test_tm1_source_form.py  # NOSONAR: unprivileged job; uv installs the hash-locked set
 
   fuzzing:
     name: fuzz the rules parser
@@ -259,6 +262,9 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
