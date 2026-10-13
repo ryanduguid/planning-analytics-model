@@ -8,14 +8,16 @@ version = "0.2.0"
 description = "An open IBM Planning Analytics budgeting model with an offline engine that computes and tests it."
 readme = "README.md"
 requires-python = ">=3.14"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Ryan Duguid" }]
 keywords = ["tm1", "planning-analytics", "budgeting", "fpa", "australia"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Office/Business :: Financial :: Accounting",
 ]
 dependencies = []
@@ -30,9 +32,9 @@ pacioliscube = "pacioliscube.cli:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
-    "ruff==0.16.9",
-    "mypy==2.3.1",
-    "hypothesis==6.168.2",
+    "ruff==0.16.10",
+    "mypy==2.4.0",
+    "hypothesis==6.168.4",
     "mutmut==3.8.0",
     "coverage==7.16.2",
     "diff-cover==10.6.0",
@@ -59,6 +61,7 @@ include = [
     "/benchmarks",
     "/pacioliscube",
     "/tests",
+    "/fuzz",
     "/model",
     "/examples",
     "/docs",
@@ -96,3 +99,7 @@ pretty = true
 source_paths = ["pacioliscube/"]
 only_mutate = ["pacioliscube/evaluate.py"]
 pytest_add_cli_args_test_selection = ["tests/test_evaluate.py", "tests/test_properties.py"]
+
+[tool.coverage.report]
+# A module's entry guard only calls main(), which the tests call directly.
+exclude_also = ['if __name__ == "__main__":']

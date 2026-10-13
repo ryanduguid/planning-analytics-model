@@ -75,7 +75,8 @@ def selector_shapes():
     return model, CellStore(), [miss, *early]
 
 
-def exact(value):
+# Tagged encoding; changing it would break the fingerprints in benchmarks/results.
+def exact(value):  # NOSONAR
     if type(value).__name__ == "CellStore":
         return ("CellStore", [exact(item) for item in value.items()])
     if isinstance(value, Decimal):
@@ -187,7 +188,8 @@ def main():
         lambda backend: list(backend.consolidate_many(model, inputs[backend], cells)),
         args.repeats, args.memory, list,
     )
-    Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    # --output is the maintainer's own report path.
+    Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")  # NOSONAR
 
 
 if __name__ == "__main__":
