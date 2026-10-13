@@ -1,3 +1,11 @@
+# v0.3.0
+
+- Breaking: requires Python 3.14 or later; 0.2.0 remains the last release for Python 3.11 to 3.13 ([#113](https://github.com/ryanduguid/planning-analytics-model/pull/113)).
+- Licence: Apache-2.0 replaces MIT, and the source distribution includes `NOTICE`. Anyone who redistributes the package or a derivative must keep that attribution. Versions already released stay under MIT ([#124](https://github.com/ryanduguid/planning-analytics-model/pull/124)).
+- Model loading reports `Elements` or `Edges` collections that are not lists, and element types that are not a recognised string, as a `ModelError` naming the file, so `pacioliscube validate` exits 2 instead of ending in a `TypeError` ([#122](https://github.com/ryanduguid/planning-analytics-model/pull/122)). Leaf collection visits each shared subtree once: a fabricated 38-node hierarchy that took 524,287 child expansions for one leaf now takes 37.
+- A rules file nested about 400 parentheses or IFs deep raises `RuleSyntaxError` instead of a `RecursionError` traceback ([#134](https://github.com/ryanduguid/planning-analytics-model/pull/134)).
+- Rule evaluation indexes ordered rules by selector ([#114](https://github.com/ryanduguid/planning-analytics-model/pull/114)) and reuses successful same-cube reference metadata within each engine ([#117](https://github.com/ryanduguid/planning-analytics-model/pull/117)). The earliest matching rule still wins, and results are unchanged.
+
 # v0.2.0
 
 - Breaking: requires Python 3.11 or later. CPython 3.10 reached end of life on 1 October 2026; 0.1.3 remains the last release that installs on Python 3.10 ([#109](https://github.com/ryanduguid/planning-analytics-model/pull/109)).
