@@ -102,6 +102,37 @@ def test_a_fractional_weight_keeps_its_written_precision(tmp_path):
     assert hierarchy.children("Total")[0].weight == Decimal("0.1")
 
 
+# Python's json module reads the bare NaN and Infinity tokens as floats, and
+# Decimal reads the quoted spellings, so both forms reach the weight parser.
+@pytest.mark.parametrize(
+    "weight", ['"NaN"', '"sNaN"', '"Infinity"', '"-Infinity"', "NaN", "Infinity", "-Infinity"]
+)
+def test_a_non_finite_weight_is_refused(tmp_path, weight):
+    dimension_file = write_dimension(
+        tmp_path,
+        "Share",
+        '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Part", "Type": "Numeric"}',
+        '{"ParentName": "Total", "ComponentName": "Part", "Weight": %s}' % weight,
+    )
+    with pytest.raises(ModelError, match="is not a finite number") as caught:
+        load_dimension(dimension_file)
+    assert "Total to Part" in str(caught.value)  # nosec B101: pytest assertion
+
+
+@pytest.mark.parametrize(
+    ("weight", "expected"), [("0", "0"), ("-1", "-1"), ("-0.25", "-0.25"), ('"2"', "2")]
+)
+def test_zero_negative_and_quoted_weights_still_load(tmp_path, weight, expected):
+    dimension_file = write_dimension(
+        tmp_path,
+        "Share",
+        '{"Name": "Total", "Type": "Consolidated"}, {"Name": "Part", "Type": "Numeric"}',
+        '{"ParentName": "Total", "ComponentName": "Part", "Weight": %s}' % weight,
+    )
+    hierarchy = load_dimension(dimension_file).default_hierarchy
+    assert hierarchy.children("Total")[0].weight == Decimal(expected)  # nosec B101
+
+
 def test_element_lookup_is_case_insensitive():
     hierarchy = load_dimension(COLOUR).default_hierarchy
     assert hierarchy.is_leaf("red") is True
