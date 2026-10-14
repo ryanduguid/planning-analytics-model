@@ -242,9 +242,11 @@ def _load_hierarchy(path: Path, dimension_name: str) -> Hierarchy:
             raise ModelError(f"{path}: an edge is missing ParentName or ComponentName")
         if not isinstance(parent, str) or not isinstance(component, str):
             raise ModelError(f"{path}: edge ParentName and ComponentName must be strings")
-        weight = decimal_or_raise(
-            entry.get("Weight", 1), f"{path}: edge {parent} to {component}", ModelError
-        )
+        where = f"{path}: edge {parent} to {component}"
+        text = entry.get("Weight", 1)
+        weight = decimal_or_raise(text, where, ModelError)
+        if not weight.is_finite():
+            raise ModelError(f"{where}: {text!r} is not a finite number")
         edges.append(Edge(parent, component, weight))
     return Hierarchy(name, dimension_name, elements, edges, path)
 

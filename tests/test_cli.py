@@ -267,6 +267,27 @@ def test_malformed_hierarchy_shapes_are_invalid_models(tmp_path, field, invalid)
     assert "Traceback" not in err
 
 
+@pytest.mark.parametrize("command", ["calculate", "report"])
+def test_a_nan_weight_is_an_invalid_model_before_calculation_or_report(tmp_path, command):
+    # A NaN weight once loaded: calculate printed NaN and exited 0, and money()
+    # raises InvalidOperation on NaN. Both commands now stop at the model load.
+    root = Path(build_model(tmp_path / "model"))
+    source = root / "dimensions" / "Colour.hierarchies" / "Colour.json"
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["Edges"][0]["Weight"] = "NaN"
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    data = build_data(tmp_path / "data")
+    if command == "calculate":
+        argv = ("calculate", str(root), "--data", data, "--cell", "Sales:Total,Units")
+    else:
+        argv = ("report", str(root), "--data", data, "--year", "FY2026-27", "--version", "Budget")
+    code, out, err = run(*argv)
+    assert code == 2
+    assert out == ""
+    assert "is not a finite number" in err
+    assert "Traceback" not in err
+
+
 def test_rules_outside_the_grammar_are_an_invalid_model_not_a_traceback(tmp_path):
     # RuleSyntaxError subclasses ValueError, not ModelError, so it passed through
     # _load and every handler in main: the CLI ended in a traceback and exit 1
