@@ -1,6 +1,7 @@
 """Benchmark fingerprints and sample lifetimes must support the reported claims."""
 
 from benchmarks import evaluate as benchmark
+from pacioliscube import evaluate as evaluator
 from pacioliscube.evaluate import CellStore
 
 
@@ -10,6 +11,22 @@ def test_fingerprint_preserves_container_types():
     assert benchmark.fingerprint({"coordinate": ("Red",)}) != benchmark.fingerprint({
         "coordinate": ["Red"],
     })
+
+
+def test_planning_cycle_checks_changed_inputs_and_model_structure():
+    from decimal import Decimal
+
+    assert benchmark.planning_cycle(evaluator) == (
+        Decimal("0.1") * 2, Decimal("2") * 2, Decimal("0.1") * 2 + 2,
+    )
+
+
+def test_planning_cycle_refuses_fast_incorrect_results(monkeypatch):
+    import pytest
+
+    monkeypatch.setattr(evaluator, "evaluate", lambda model, inputs: inputs)
+    with pytest.raises(RuntimeError, match="independent expectation"):
+        benchmark.planning_cycle(evaluator)
 
 
 def test_preceding_result_teardown_is_outside_the_next_sample(monkeypatch):
