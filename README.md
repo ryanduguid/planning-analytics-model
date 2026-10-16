@@ -236,6 +236,26 @@ establish agreement with a native server.
   not a Planning Analytics reimplementation, and it will not run an arbitrary
   model.
 
+## Offline planning-loop benchmark
+
+`benchmarks/evaluate.py` compares a trusted frozen evaluator with this checkout
+and binds timing reports to both source digests. Its `planning-cycle` workload
+constructs a small fabricated model, changes an input, recalculates, reads the
+affected result and evaluates an extended model. It checks independent arithmetic
+before accepting a timing sample, so a fast incorrect result fails the run.
+
+Run from this checkout with a reviewed baseline file:
+
+```bash
+uv run --locked --extra dev python benchmarks/evaluate.py --baseline /path/to/trusted/evaluate.py --baseline-revision <full-commit> --repeats 5 --output /approved/path/benchmark.json
+```
+
+The report measures the repository's offline evaluator and includes model
+construction and result checks. It is not a native TM1 comparison or an FPABench
+score. The [native comparison](docs/native-comparison.md) has its own pending
+server checks. The planning-loop scenario borrows the evaluation idea from
+[FPABench](https://github.com/farseerdev/FPABench), without using its model or data.
+
 ## Client data
 
 No real data belongs in this repository. The `.gitignore` blocks the file names

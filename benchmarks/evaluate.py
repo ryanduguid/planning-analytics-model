@@ -101,6 +101,28 @@ def copy_inputs(backend, store):
     return result
 
 
+def planning_cycle(backend):
+    """Construct, change inputs, recalculate and query a changed synthetic model.
+
+    These are tiny arithmetic cases, not native TM1 or FPABench results.
+    Each stage checks an independently stated result before timing is accepted.
+    """
+    model, inputs = workload(3, 2)
+    initial = backend.evaluate(model, copy_inputs(backend, inputs)).get(
+        "Synthetic", ("Entity0", "Output0"))
+    changed = copy_inputs(backend, inputs)
+    changed.set("Synthetic", ("Entity0", "Input"), Decimal("2"))
+    recalculated = backend.evaluate(model, changed).get("Synthetic", ("Entity0", "Output0"))
+    wider_model, wider_inputs = workload(3, 3)
+    extended = backend.evaluate(wider_model, copy_inputs(backend, wider_inputs)).get(
+        "Synthetic", ("Entity0", "Output2"))
+    result = (initial, recalculated, extended)
+    expected = (Decimal("0.1") * 2, Decimal("2") * 2, Decimal("0.1") * 2 + 2)
+    if result != expected:
+        raise RuntimeError("planning-cycle arithmetic differs from the independent expectation")
+    return result
+
+
 def compare(name, modules, operation, repeats, memory, return_type=None):
     samples = {key: [] for key in modules}
     hashes = {}
@@ -157,6 +179,9 @@ def main():
                   name: hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()
                   for name, module in modules.items()
               }, "workloads": {}}
+    report["workloads"]["planning-cycle"] = compare(
+        "planning-cycle", modules, planning_cycle, args.repeats, args.memory, tuple,
+    )
     model = load_model(Path("model"))
     store = load_data(model, Path("examples"))
     cases = [("repository-model", model, store)]
