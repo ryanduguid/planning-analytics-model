@@ -180,13 +180,14 @@ jobs:
           save-cache: ${{ github.ref == 'refs/heads/main' }}
           prune-cache: true
       - run: uv build
-      # A wheel that installs but cannot find its own model tree is a broken release,
-      # so the real command line runs against the real model here, not a stub.
+      # Run away from the checkout so missing package data cannot be hidden by model/.
       - name: install the wheel into a clean environment and run the real command line
         run: |
           python -m venv /tmp/wheelenv
           /tmp/wheelenv/bin/pip install --no-index dist/pacioliscube-*.whl
-          /tmp/wheelenv/bin/pacioliscube validate model
+          mkdir -p /tmp/wheel-consumer && cd /tmp/wheel-consumer
+          test "$(/tmp/wheelenv/bin/pacioliscube demo)" = \
+            "PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100"
       # An sdist missing tests or fixtures still passes a source checkout run,
       # so the shipped tests are run from the extracted sdist as well.
       - name: run the shipped tests out of the sdist

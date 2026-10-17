@@ -95,6 +95,21 @@ uv run --locked --extra dev pytest -q
 
 ## Use
 
+The candidate wheel adds a first result that works without a clone:
+
+```bash
+pacioliscube demo
+```
+
+```text
+PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100
+```
+
+It reads the packaged synthetic model and five CSV inputs without writing files
+or accessing a network. These are dated planning assumptions, not current
+statutory advice or evidence of native TM1 agreement. This command is pending
+publication; the published 0.3.0 route uses the source directories below.
+
 Run these examples from the root of the source clone above; they use the
 checked-in `model/` and `examples/` directories.
 

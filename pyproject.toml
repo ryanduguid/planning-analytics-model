@@ -56,6 +56,10 @@ tm1git = [
 [tool.hatch.build.targets.wheel]
 packages = ["pacioliscube"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"model" = "pacioliscube/_example/model"
+"examples" = "pacioliscube/_example/data"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/benchmarks",

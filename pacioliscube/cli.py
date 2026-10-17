@@ -53,6 +53,7 @@ from pacioliscube.rules import RuleSyntaxError
 from pacioliscube.validate import ERROR, Finding, validate_model
 
 DEFAULT_MODEL_ROOT = "model"
+DEMO_ROOT = Path(__file__).resolve().parent / "_example"
 
 
 def _directory(argument: str, what: str) -> Path:
@@ -210,6 +211,14 @@ def _calculate_command(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _demo_command(_args: argparse.Namespace) -> int:
+    """Read the wheel's synthetic model, without depending on a source checkout."""
+    return _calculate_command(argparse.Namespace(
+        model_dir=str(DEMO_ROOT / "model"), data=str(DEMO_ROOT / "data"),
+        cell=["PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount"],
+    ))
+
+
 def _report_command(args: argparse.Namespace) -> int:
     model = _load(_model_root(args))
     _refuse_broken_model(model)
@@ -274,6 +283,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"pacioliscube {__version__}")
     subcommands = parser.add_subparsers(dest="command", metavar="SUBCOMMAND", required=True)
+
+    demo = subcommands.add_parser("demo", help="calculate gross margin from packaged synthetic inputs")
+    demo.set_defaults(handler=_demo_command)
 
     def with_model_dir(subparser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         subparser.add_argument(

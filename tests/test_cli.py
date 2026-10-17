@@ -87,6 +87,30 @@ def run(*argv: str) -> tuple:
     return run_once(*argv)
 
 
+def test_demo_uses_its_packaged_inputs_from_an_empty_directory_without_writes(tmp_path, monkeypatch):
+    packaged = tmp_path / "package" / "_example"
+    shutil.copytree(MODEL_ROOT, packaged / "model")
+    shutil.copytree(EXAMPLES_ROOT, packaged / "data")
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.chdir(empty)
+    monkeypatch.setattr(cli, "DEMO_ROOT", packaged, raising=False)
+    before = {path: path.read_bytes() for path in packaged.rglob("*") if path.is_file()}
+    code, out, err = run_once("demo")
+    assert code == 0 and not err
+    # The independent gross-margin arithmetic is pinned in test_calculations.
+    assert out == "PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100\n"
+    assert not list(empty.iterdir())
+    assert before == {path: path.read_bytes() for path in packaged.rglob("*") if path.is_file()}
+
+
+def test_demo_refuses_missing_packaged_inputs_without_using_the_source_checkout(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "DEMO_ROOT", tmp_path / "missing", raising=False)
+    code, out, err = run_once("demo")
+    assert code == 1 and not out
+    assert "there is no model directory there" in err
+
+
 def build_model(root: Path, rules: str = "", extra_files: dict | None = None) -> str:
     """Write the smallest model a command line test can point at."""
     return str(write_model(root, rules=rules, extra_files=extra_files))
