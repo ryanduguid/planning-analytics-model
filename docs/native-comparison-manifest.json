@@ -1,0 +1,324 @@
+{
+  "schema_version": 1,
+  "model_commit": "ff09426531362becb65e6b3b7de387c447770eac",
+  "scope": "Fabricated dated planning inputs only. Offline results do not establish statutory currency or native TM1 agreement.",
+  "tolerance": {
+    "currency_unit": "0.01",
+    "maximum_raw_difference": "0.005"
+  },
+  "native_evidence": {
+    "status": "pending",
+    "server_version": null,
+    "server_build": null,
+    "operator": null,
+    "run_date": null,
+    "raw_exports": []
+  },
+  "collection_procedure": [
+    "Use an authorised isolated non-production server and a separate database for each altered-input variant.",
+    "Load the exact hashed model and five CSV inputs; retain source round-trip comparison, repository commit, server/build, operator and date.",
+    "Export full-precision values with complete cube coordinates, offline value and difference. Compare at cents and retain raw differences; maximum unrounded difference is half a cent.",
+    "Read consolidated Gross Margin and the no-workforce threshold case from zero-suppressed views.",
+    "For the no-workforce variant, open the view on fresh feeder state BEFORE Check Feeders, because Check Feeders can hide missing feeders. Verify Corporate and Group both include the credit.",
+    "Keep native_evidence pending until the actual raw server exports and all comparisons exist."
+  ],
+  "input_trace": [
+    {
+      "value": "574000",
+      "source": "examples/revenue.csv",
+      "derivation": "FY2026-27/Budget/Jul/CivilCo/Drill and Blast: Billable Hours 1400 * Charge Rate 410"
+    },
+    {
+      "value": "162800",
+      "source": "examples/revenue.csv + examples/drivers.csv",
+      "derivation": "CivilCo/Earthworks July Fuel Litres 88000 * Full Year Fuel Price 1.85"
+    },
+    {
+      "value": "48100",
+      "source": "examples/revenue.csv + examples/drivers.csv",
+      "derivation": "CivilCo/Drill and Blast July Fuel Litres 26000 * Full Year Fuel Price 1.85"
+    },
+    {
+      "value": "25000",
+      "source": "examples/workforce.csv",
+      "derivation": "CivilCo/Corporate/Administration: July Headcount 2 * Full Year Base Pay Rate 150000 / 12"
+    },
+    {
+      "value": "3000",
+      "source": "examples/workforce.csv + examples/drivers.csv",
+      "derivation": "Corporate monthly base pay 25000 * Full Year SG Rate 0.12"
+    },
+    {
+      "value": "270830",
+      "source": "examples/drivers.csv",
+      "derivation": "FY2026-27/Budget/Full Year/Maximum Contribution Base"
+    }
+  ],
+  "input_hashes": {
+    "model/cubes/Capex.json": "8fc2b97e49c66b983466a87e6b4a57604b047d262970a2b4ca1c63f158a5902c",
+    "model/cubes/Capex.rules": "3e36e2ff5022b8eb34273b2e594e1f3297136115a8bcdc4a15441eb3b69595af",
+    "model/cubes/Drivers.json": "a78bc72397f63de56e5043076eeb808c1be461704783c296e688494788adf74a",
+    "model/cubes/Drivers.rules": "8646429b76e5f33056ff07d3f4b8e5357dbdc7285cadc21937a1bd0a2198d2cc",
+    "model/cubes/PnL.json": "f8f18032f8c256aaf0069987c7e852af2c1581b14213c89f9965ea5aff4b276d",
+    "model/cubes/PnL.rules": "2018f5a17e23f6f748e8f789b6c4687079c374e9533ea18012423726a6e1ca3d",
+    "model/cubes/Revenue.json": "d27cacb2d659797ae526ae215b3715c81a19486d1ddd392e31280d6464631ade",
+    "model/cubes/Revenue.rules": "25275565ee82c1331df744a326028f5abff861b1d8baa596613e7c0385fbd08c",
+    "model/cubes/Workforce.json": "4583ce53a2e630af8ca983d952eab0e1f4ea4c8cd30a0f4af10fccea7b0eaab0",
+    "model/cubes/Workforce.rules": "37edf06409432290255758a566d9f7ea480b1c31191e509e507f5be511c342fa",
+    "model/dimensions/Account.hierarchies/Account.json": "932efd4d2392004ca96bc8b085db6819094cbddd2aed67d41022ad2270cacbc1",
+    "model/dimensions/Account.json": "74e4e6854388eb99463a087a7ad0f2df9d321be381d078ef8781ad0f2ef3e824",
+    "model/dimensions/CapexMeasure.hierarchies/CapexMeasure.json": "17b39791f8a0dc943a7d2b2722e9b0553678ae8a230f9e5e133833cf351333a2",
+    "model/dimensions/CapexMeasure.json": "b36ddb543a34312d970e548648ed4dc3ddebb39ada63ae2819c9d87ab7b50cbd",
+    "model/dimensions/CostCentre.hierarchies/CostCentre.json": "ac49c1f93792c09981e8e39d4f40c0e64e3e7b71c549e8f72ce56c904ff7d487",
+    "model/dimensions/CostCentre.json": "e7391caf579c5a20399d54f616211cf55ad6639b065083f6515eac7239bee274",
+    "model/dimensions/DriverMeasure.hierarchies/DriverMeasure.json": "b2816f936b0bb8978cd6bb476a401babe5c33756ad6d4b9f5e7142b2ed96d447",
+    "model/dimensions/DriverMeasure.json": "02ec966410141b1efc54c4868a36d08a8ac81af20570683a9e0bb87e85ad3b59",
+    "model/dimensions/Entity.hierarchies/Entity.json": "4fc0e0a0f8c30d1211966f02c81e2ac79a53c6caa35eac174a65cbb253f6eebe",
+    "model/dimensions/Entity.json": "031a1226beee92082535275052b1d5bd1297392dead905a09978dedb242ba2f1",
+    "model/dimensions/Fleet.hierarchies/Fleet.json": "4ca09a4782ce9305f79e7bd584c95f6731d2b419d54dcaede3d9835d221e1d46",
+    "model/dimensions/Fleet.json": "4c2c5dc6300900dafd21586de85305fd1416676ef5192c7992299a8f073b449b",
+    "model/dimensions/Period.hierarchies/Period.json": "205657a98c4933cc6a0fc11cdf8da86499cb3d3f712b2bc8c63923edd06f41ac",
+    "model/dimensions/Period.json": "21322df1f10a93876527993528a36b5aa42d800bc012acd9933e17bdbd947d8f",
+    "model/dimensions/PnLMeasure.hierarchies/PnLMeasure.json": "9cffdb0dd81f6ff7e384f20af304cdec700f249a79db0233dde22ed10714d064",
+    "model/dimensions/PnLMeasure.json": "e20600243760c0d2cc447187f60d15dddbf3a08ece3e6b96b3ed736764ca02fc",
+    "model/dimensions/RevenueMeasure.hierarchies/RevenueMeasure.json": "cfd0ba70bbaf26cb2045afbaaf73b3574ecd14ba60ecdc807806ffb0ff08abbc",
+    "model/dimensions/RevenueMeasure.json": "e644cfe0b46af81245931b8beddfa6cc1cdeba542ea4448625ff593fe46b1b31",
+    "model/dimensions/Role.hierarchies/Role.json": "5a204a041f2590f6dabc3f6c12e49828284e9fdbfba13e0c2032301d3edae5b6",
+    "model/dimensions/Role.json": "7eedf88b3a8474a9238f0d7e1033ee3e780ca87afc6e73eb0bb1be4022d7f5ff",
+    "model/dimensions/Version.hierarchies/Version.json": "33511335958012f5a1da4167e65385956a3da9195af8a7303398d95f529d8f4a",
+    "model/dimensions/Version.json": "53f7cc3fb282a34c422ba1a44f0944f34de3be860d57d8fc036b2205a135c3a2",
+    "model/dimensions/WorkforceMeasure.hierarchies/WorkforceMeasure.json": "49d1e5fe7f67f1929ac8c57e241a6d11515a3d436466023869cf0ed5655e8be3",
+    "model/dimensions/WorkforceMeasure.json": "e114715965bca4d572dd13036bdb612a880c80c8524ec6996b059109f2839e9c",
+    "model/dimensions/Year.hierarchies/Year.json": "b480e266b4ae28e00a902e44eeff2b5ff9669917b56c4856275e7e3d670e90cc",
+    "model/dimensions/Year.json": "40b42bb28213d06fa591b952cccab9b0fcf8f3aaad77b1b3e2b3d5b90fdbd419",
+    "model/processes/ClearVersion.json": "2579bf11d3702fda12f81ef65b41fd8337bafaacf63afef6bef8494ba213c4e3",
+    "model/processes/ClearVersion.ti": "f81b5f17be6b1886a668446c39d666e9df162bb1949e5b24a6c3391175305458",
+    "model/processes/ExportPnL.json": "1882d02076ce109ce7f2c1754362991249d9ea855afd8548f49319e49396fbfe",
+    "model/processes/ExportPnL.ti": "63f44f275fc4f029462bce02cfff01cc9da6219f0bf54fd63adfec91487d48a0",
+    "model/processes/LoadCapex.json": "346bcb516d45191c4c4d61da1e69ae8a4d8717da8fd156697787adbeb63a27af",
+    "model/processes/LoadCapex.ti": "609f095cceed83c1242b81939b3451f877fa2d52d7c3d029ec074580859b3341",
+    "model/processes/LoadDrivers.json": "0994be48f4bee6062266842e1b75fc6e8f899d8b96c8b4095b4c5adcc512dde7",
+    "model/processes/LoadDrivers.ti": "909f10a8938ead98f4c99c919af1d681f4d53a478c4059a0cada54ac4abd7544",
+    "model/processes/LoadPnLDirect.json": "45373012839ede8338bb95874f220a759cdddc62476ead2104bfde1ce3569d2f",
+    "model/processes/LoadPnLDirect.ti": "c8fe88c93b91907e407370ad6b2f8e0b92879161fa6b37bd0c3baf1f10bdfb52",
+    "model/processes/LoadRevenue.json": "595369357cd6e76d0cf6e663f11da709ce736867dced37f6eaa8a570dd824ad9",
+    "model/processes/LoadRevenue.ti": "6f21494e95ebd60f3a5f7263601d3838f3445cacaeaf815373c6a4175dae9bdb",
+    "model/processes/LoadWorkforce.json": "56b8c72541c39c066a108073c5634938d65dcf81897051e0ab85fe7d554e775d",
+    "model/processes/LoadWorkforce.ti": "0af7e7c8d754ed095c29aba0ade1690c75156524c65ffa5d1364277e8c5c3350",
+    "model/processes/SeedBudget.json": "95cd2739b96c4a55ae6443d69e42b230eaa25da3d3c9d456e333770b983590df",
+    "model/processes/SeedBudget.ti": "73f935d1510e1a38e5152abe2f9d9a8a4dc6568af2b90a74c7b3dfadf681cd6c",
+    "model/tm1project.json": "16de5cabd3bc3d2a05e873ee1cf7792834d7a51eb8d1e610dd382724b8b22a4f",
+    "examples/capex.csv": "a96796c642a3706952a7297762bc2137349f5d7135267a3c3bb8497fe5c74a7e",
+    "examples/drivers.csv": "029304cfc5e620f4381aac67c865f26d0339b92477ac15ecbb41cd6b77e623e5",
+    "examples/pnl-direct.csv": "86752a695e836009429004350c8268c2c3743c5da4e22000cc04e41d25fe2873",
+    "examples/revenue.csv": "1e033dc274497eb06f92b061f8b9949f54095cf2a0b910b28a1849e83cc25485",
+    "examples/workforce.csv": "d389417b865235c29fbdf41a7cccdcece8a4acec313280b24050e64f20132a66"
+  },
+  "cases": [
+    {
+      "id": "TM1-001",
+      "variant": "baseline",
+      "cube": "Workforce",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Earthworks",
+        "Operator",
+        "Base Pay"
+      ],
+      "independent_arithmetic": "18 * 125000 / 12",
+      "expected": "187500.00",
+      "independent_test": "test_monthly_base_pay_is_headcount_times_the_annual_rate_over_twelve",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-002",
+      "variant": "baseline",
+      "cube": "Workforce",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Earthworks",
+        "Operator",
+        "Superannuation Cost"
+      ],
+      "independent_arithmetic": "18 * 125000 * 0.12 / 12",
+      "expected": "22500.00",
+      "independent_test": "test_superannuation_is_the_sg_rate_on_pay_below_the_maximum_contribution_base",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-003",
+      "variant": "baseline",
+      "cube": "Workforce",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Drill and Blast",
+        "Supervisor",
+        "Superannuation Cost"
+      ],
+      "independent_arithmetic": "270830 * 0.12 / 12",
+      "expected": "2708.30",
+      "independent_test": "test_superannuation_is_capped_for_the_role_paid_above_the_contribution_base",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-004",
+      "variant": "baseline",
+      "cube": "Workforce",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Earthworks",
+        "Operator",
+        "Payroll Tax Cost"
+      ],
+      "independent_arithmetic": "(187500 + 22500) * 0.0545",
+      "expected": "11445.00",
+      "independent_test": "test_payroll_tax_is_charged_on_pay_grossed_up_by_superannuation",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-005",
+      "variant": "baseline",
+      "cube": "Revenue",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Earthworks",
+        "Contract Revenue Amount"
+      ],
+      "independent_arithmetic": "5200 * 295",
+      "expected": "1534000.00",
+      "independent_test": "test_contract_revenue_is_billable_hours_times_the_charge_rate",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-006",
+      "variant": "baseline",
+      "cube": "Capex",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Excavator",
+        "Depreciation Charge"
+      ],
+      "independent_arithmetic": "2400000 / 84",
+      "expected": "28571.43",
+      "independent_test": "test_depreciation_is_annual_additions_divided_by_the_asset_life_in_months",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-007",
+      "variant": "baseline",
+      "cube": "PnL",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "Corporate",
+        "Payroll Tax",
+        "Amount"
+      ],
+      "independent_arithmetic": "(25000 + 3000) * 0.0545 - 1200000 * 0.0545 * 31 / 365",
+      "expected": "-4028.52",
+      "independent_test": "test_the_payroll_tax_threshold_credit_reaches_the_designated_group_employer",
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-008",
+      "variant": "baseline",
+      "cube": "PnL",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Jul",
+        "CivilCo",
+        "All Cost Centres",
+        "Gross Margin",
+        "Amount"
+      ],
+      "independent_arithmetic": "(5200 * 295 + 180000 + 1400 * 410) - (260000 + 95000 + 88000 * 1.85 + 26000 * 1.85 + 48000 + 22000)",
+      "expected": "1652100.00",
+      "independent_test": "test_gross_margin_is_revenue_less_direct_costs_at_a_consolidated_node",
+      "native_zero_suppression": true
+    },
+    {
+      "id": "TM1-009",
+      "variant": "missing-february-days",
+      "cube": "PnL",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "Feb",
+        "CivilCo",
+        "Corporate",
+        "Payroll Tax",
+        "Amount"
+      ],
+      "remove_rows": {
+        "file": "drivers.csv",
+        "where": {
+          "Year": "FY2026-27",
+          "Version": "Budget",
+          "Period": "Feb",
+          "DriverMeasure": "Days"
+        }
+      },
+      "independent_arithmetic": "Missing February Days makes the monthly credit undefined; July uses Full Year Days and remains -4028.52 natively.",
+      "expected": "N/A",
+      "offline_exit": 3,
+      "native_zero_suppression": false
+    },
+    {
+      "id": "TM1-010",
+      "variant": "no-corporate-workforce",
+      "cube": "PnL",
+      "coordinates": [
+        "FY2026-27",
+        "Budget",
+        "FY",
+        "CivilCo",
+        "Corporate",
+        "Payroll Tax",
+        "Amount"
+      ],
+      "group_coordinates": [
+        "FY2026-27",
+        "Budget",
+        "FY",
+        "Group",
+        "All Cost Centres",
+        "Payroll Tax",
+        "Amount"
+      ],
+      "remove_rows": {
+        "file": "workforce.csv",
+        "where": {
+          "Year": "FY2026-27",
+          "Version": "Budget",
+          "Entity": "CivilCo",
+          "CostCentre": "Corporate"
+        }
+      },
+      "independent_arithmetic": "0 - 1200000 * 0.0545; Group must retain this -65400 credit. Removing Corporate payroll removes 2 * 150000 * 1.12 * 0.0545 of annual gross charge.",
+      "expected": "-65400.00",
+      "native_zero_suppression": true,
+      "fresh_feeders_before_check_feeders": true
+    }
+  ]
+}

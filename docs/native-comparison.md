@@ -5,6 +5,13 @@ for the September 2026 verification. The checks below define a small comparison
 against the shipped synthetic model. Offline results must never be recorded as
 native results.
 
+`native-comparison-manifest.json` binds all ten cases to the model commit and
+SHA-256 hashes of every model definition and the five synthetic input files.
+It records the previously implicit input traces, comparison tolerance and
+collection procedure. The offline regression tests check those hashes and the
+independent arithmetic; all native evidence fields remain pending until an
+authorised isolated server and raw exports are available.
+
 ## Model and inputs
 
 Use an isolated TM1 database with this checkout's `model/` definitions and all
