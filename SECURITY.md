@@ -16,7 +16,7 @@ a note of what was affected land on the default branch.
 
 ## What this project does and does not do
 
-The runtime imports nothing outside the Python standard library. It makes no
+The engine is a self-contained binary with no runtime dependencies. It makes no
 network calls, reads no credentials and writes no files unless you ask it to.
 It reads 2 things: the model source under `model/` and whatever CSV files you
 point it at.

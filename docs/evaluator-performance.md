@@ -1,5 +1,10 @@
 # Evaluator performance
 
+This page records the Python engine's rule index, measured before the Rust
+command line replaced it in version 1.0.0. The rule index, its first-match
+order and its lazy area resolution carried over unchanged. Time the Rust
+engine with `cargo bench --bench evaluate`, as the README describes.
+
 The rule index reduces repeated rule scanning in the Python Decimal evaluator.
 On 5 October 2026, the 65,000-cell fabricated workload ran in 1.08 seconds,
 compared with 2.47 seconds at revision
@@ -50,22 +55,16 @@ to 641,866 bytes. These results describe the supplied workloads on one machine.
 
 A separate Rust/PyO3 experiment tested only the string-based matcher. It is
 excluded from this implementation and its performance evidence. The delivered
-engine uses the Python index and has no runtime dependencies. These results
+Python implementation used the index and had no runtime dependencies. These results
 do not assess a complete Rust port or an integer-ID native matcher.
 
 ## Reproduce the Python comparison
 
-Install Git, uv and RTK, the command wrapper used below to filter terminal
-output. From a trusted checkout, save the baseline evaluator and run the
-benchmark. If RTK is unavailable, use `git show` and `uv run` directly.
-
-```bash
-rtk proxy git show b4da44a8665128113366ab488683db6f5a2173b9:pacioliscube/evaluate.py > /tmp/pacioliscube-before.py
-rtk uv run --locked --extra dev python benchmarks/evaluate.py --baseline /tmp/pacioliscube-before.py --baseline-revision b4da44a8665128113366ab488683db6f5a2173b9 --repeats 7 --memory --output comparison.json
-```
-
-The baseline file is imported as Python code and must come from a trusted
-revision. The benchmark compares ordered stores, batch values and complete
+The comparison ran `benchmarks/evaluate.py` from the last Python release,
+0.3.0, against the evaluator at revision
+`b4da44a8665128113366ab488683db6f5a2173b9`. Both files remain in the
+repository history at tag `v0.3.0`; the baseline file is imported as Python
+code and must come from a trusted revision. The benchmark compares ordered stores, batch values and complete
 explanation trees, encoding every Decimal through `as_tuple()` and tagging
 container types. It verifies the public return types and stops on a mismatch,
 including exponent, signed-zero, tuple/list or evidence-order differences.

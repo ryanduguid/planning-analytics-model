@@ -26,22 +26,22 @@ The PaciolisCube budget model. This repository was named PaciolisCube until Sept
 [![OpenSSF Best Practices](https://img.shields.io/cii/level/15428?label=Best%20Practices&labelColor=000000&style=flat-square)](https://www.bestpractices.dev/projects/15428)
 [![SLSA 3](https://img.shields.io/badge/SLSA-level%203-990024?labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/attestations)
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned-990024?labelColor=000000&style=flat-square&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)<br>
-[![PyPI](https://img.shields.io/pypi/v/pacioliscube.svg?color=66023C&labelColor=000000&style=flat-square)](https://pypi.org/project/pacioliscube/)
-[![python](https://img.shields.io/badge/python-3.14%2B-66023C?labelColor=000000&style=flat-square)](https://www.python.org/)
+[![rust](https://img.shields.io/badge/rust-1.99-66023C?labelColor=000000&style=flat-square)](https://www.rust-lang.org/)
 [![licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-66023C?labelColor=000000&style=flat-square)](LICENSE)
 
 An IBM Planning Analytics budgeting model published as source, with an offline
 engine that computes it and a test suite that asserts the answers.
 
-**Package lifecycle:** published. Version 0.3.0 is on PyPI as `pacioliscube`;
-the model and its engine also run from a clone of this repository.
+**Package lifecycle:** the engine is a Rust command line, version 1.0.0,
+built from source. It replaces the Python package `pacioliscube` 0.3.0;
+its library API is not carried forward. See [CHANGELOG.md](CHANGELOG.md).
 
 Planning Analytics models usually live inside a server. You can read a rule file
 on GitHub, but you cannot run it, and nothing tells you whether a change to it
 broke a number. This repository holds a complete driver based budget for a
 fictional Australian mining services group in the source form of IBM's TM1
 source specification, which the Planning Analytics Git integration reads, plus a
-Python engine that parses the rules and evaluates them with no TM1 server
+Rust engine that parses the rules and evaluates them with no TM1 server
 anywhere. Continuous integration recomputes the whole model on every push and
 fails if a figure moves, and it loads the model with
 [tm1gitpy](https://github.com/KnowledgeSeed/tm1gitpy), an independent TM1 Git
@@ -65,8 +65,9 @@ On this page:
   with a `#region` block for each of the Prolog, Metadata, Data and Epilog
   procedures, and cubes name their dimensions as `Dimensions('X')`
   references, as the specification's examples show.
-- `pacioliscube/` is the engine: a rule parser, a structural validator, a cell
-  store with weighted consolidation, a CSV loader and a command line.
+- `src/` is the engine: a rule parser, a structural validator, a cell store
+  with weighted consolidation, a CSV loader and the `pacioliscube` command
+  line. Figures are exact decimals, never floating point.
 - `examples/` contains fictional entities, commercial rates and volumes, plus
   dated statutory rates and thresholds cited in `docs/model-assumptions.md`.
 - `docs/model-assumptions.md` traces every statutory figure to its source, and
@@ -75,27 +76,26 @@ On this page:
 
 ## Install
 
-```bash
-python -m pip install pacioliscube
-```
-
-Or from a clone, which also gives you the model files and the tests:
+Build the command line from a clone, which also gives you the model files and
+the tests. The toolchain is pinned in `rust-toolchain.toml`; rustup installs it
+on first use.
 
 ```bash
 git clone https://github.com/ryanduguid/planning-analytics-model.git
 cd planning-analytics-model
-python -m pip install .
+cargo install --locked --path .
 ```
 
-The runtime imports nothing outside the Python standard library. From a clone:
+The engine needs no network, server or runtime beyond the binary. From a
+clone, run the tests with:
 
 ```bash
-uv run --locked --extra dev pytest -q
+cargo test --locked
 ```
 
 ## Use
 
-The candidate wheel adds a first result that works without a clone:
+The installed binary carries a first result that works without a clone:
 
 ```bash
 pacioliscube demo
@@ -105,9 +105,11 @@ pacioliscube demo
 PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100
 ```
 
-It reads the packaged synthetic model and five CSV inputs without writing files
-or accessing a network. These are dated planning assumptions, not current
-statutory advice or evidence of native TM1 agreement. This command is pending
+It reads the synthetic model and five CSV inputs built into the binary, without
+accessing a network. It writes them to a new private temporary directory, reads
+them from there and removes that directory before it exits; nothing is written
+where it runs. These are dated planning assumptions, not current statutory
+advice or evidence of native TM1 agreement. This command is pending
 publication; the published 0.3.0 route uses the source directories below.
 
 Run these examples from the root of the source clone above; they use the
@@ -267,20 +269,21 @@ establish agreement with a native server.
 
 ## Offline planning-loop benchmark
 
-`benchmarks/evaluate.py` compares a trusted frozen evaluator with this checkout
-and binds timing reports to both source digests. Its `planning-cycle` workload
-constructs a small fabricated model, changes an input, recalculates, reads the
-affected result and evaluates an extended model. It checks independent arithmetic
-before accepting a timing sample, so a fast incorrect result fails the run.
-
-Run from this checkout with a reviewed baseline file:
+`benches/evaluate.rs` times the evaluator on fabricated workloads and the
+shipped model, and records a SHA-256 fingerprint of each result, which must be
+the same on every sample. Its `planning-cycle` workload constructs a small
+fabricated model, changes an input, recalculates, reads the affected result
+and evaluates an extended model. It checks independent arithmetic before
+accepting a timing sample, so a fast incorrect result fails the run.
 
 ```bash
-uv run --locked --extra dev python benchmarks/evaluate.py --baseline /path/to/trusted/evaluate.py --baseline-revision <full-commit> --repeats 5 --output /approved/path/benchmark.json
+cargo bench --bench evaluate -- --repeats 5 --output /approved/path/benchmark.json
 ```
 
-The report measures the repository's offline evaluator and includes model
-construction and result checks. It is not a native TM1 comparison or an FPABench
+To compare two revisions, run the benchmark at each and compare the reports:
+equal fingerprints show both computed the same results. The report measures
+the repository's offline evaluator and includes model construction and result
+checks. It is not a native TM1 comparison or an FPABench
 score. The [native comparison](docs/native-comparison.md) has its own pending
 server checks. The planning-loop scenario borrows the evaluation idea from
 [FPABench](https://github.com/farseerdev/FPABench), without using its model or data.

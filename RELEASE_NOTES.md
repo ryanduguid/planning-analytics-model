@@ -1,3 +1,7 @@
+# v1.0.0 (unreleased)
+
+- Breaking: the engine is a Rust command line built with Cargo, replacing the Python package at version 0.3.0. It preserves the `pacioliscube` subcommands, flags, exit codes and output except for the differences in [CHANGELOG.md](CHANGELOG.md); the Python library API is removed.
+
 # v0.3.0
 
 - Breaking: requires Python 3.14 or later; 0.2.0 remains the last release for Python 3.11 to 3.13 ([#113](https://github.com/ryanduguid/planning-analytics-model/pull/113)).

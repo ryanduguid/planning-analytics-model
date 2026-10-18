@@ -22,24 +22,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
         with:
-          languages: python
+          languages: rust
           build-mode: none
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          upload: never
+          upload-database: false
+          output: sarif
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: codeql-rust-sarif
+          path: sarif/*.sarif
+          if-no-files-found: error
+          retention-days: 1
 
-  # A separate job, so the Python analysis keeps the analyse check name.
+  # A separate job, so the Rust analysis keeps the analyse check name.
   analyse-actions:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -49,13 +57,42 @@ jobs:
           languages: actions
           build-mode: none
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          upload: never
+          upload-database: false
+          output: sarif
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: codeql-actions-sarif
+          path: sarif/*.sarif
+          if-no-files-found: error
+          retention-days: 1
+
+  # Rust extraction can execute dependency build scripts. Only the generated
+  # SARIF crosses into this separate runner with code-scanning write access.
+  upload:
+    needs: [analyse, analyse-actions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: codeql-*-sarif
+          path: sarif
+          merge-multiple: true
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: sarif
 
   codeql-gates:
     # The one context branch protection requires from this workflow. It fails
     # unless every job it needs succeeded, when a job in this file is missing
     # from needs, or when a pull request removes a job without adding a
     # "# removed-jobs: <job>" comment to this file.
-    needs: [analyse, analyse-actions]
+    needs: [analyse, analyse-actions, upload]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

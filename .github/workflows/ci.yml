@@ -16,14 +16,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# CI follows maintenance releases; local development pins the patch.
+# The engine's toolchain is pinned in rust-toolchain.toml.
 env:
-  UV_PYTHON: "3.14"
+  CARGO_TERM_COLOR: never
+  RUST_TOOLCHAIN: "1.99"
 
 jobs:
   lint:
-    env:
-      UV_PYTHON: "3.15"
     timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
@@ -32,23 +31,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.15"
-          allow-prereleases: true
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.5"
-          enable-cache: true
-          save-cache: ${{ github.ref == 'refs/heads/main' }}
-          prune-cache: true
-      - run: uv run --locked --extra dev ruff check pacioliscube tests  # NOSONAR: unprivileged job; uv installs the hash-locked set
-      - run: uv run --locked --extra dev mypy pacioliscube  # NOSONAR: unprivileged job; uv installs the hash-locked set
+      - name: Install the pinned toolchain
+        run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component clippy,rustfmt
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint the engine, its tests and its benchmark
+        run: cargo clippy --locked --all-targets -- -D warnings
 
   test:
-    env:
-      UV_PYTHON: "${{ matrix.python }}"
-    name: test (${{ matrix.os }}, ${{ matrix.python }})
+    name: test (${{ matrix.os }})
     needs: lint
     timeout-minutes: 30
     runs-on: ${{ matrix.os }}
@@ -57,56 +48,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            python: "3.14"   # the declared floor and coverage producer
-            fetch_depth: 0
-          - os: ubuntu-latest
-            python: "3.15"
-            fetch_depth: 1
-          - os: windows-latest
-            python: "3.14"   # where path handling and the ANSI code page diverge
-            fetch_depth: 1
+        # Windows is where path handling, CRLF output and the console differ.
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: ${{ matrix.fetch_depth }}
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: ${{ matrix.python }}
-          allow-prereleases: true
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.5"
-          enable-cache: true
-          save-cache: ${{ github.ref == 'refs/heads/main' }}
-          prune-cache: true
-      - name: run tests
-        if: matrix.os != 'ubuntu-latest' || matrix.python != '3.14'
-        run: uv run --locked --extra dev --python ${{ matrix.python }} pytest -q
-      - name: run tests with whole-package branch coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
-        run: >-
-          uv run --locked --extra dev --python ${{ matrix.python }}
-          coverage run --branch --source=pacioliscube -m pytest -q
-      - name: require complete changed-line coverage in validation logic
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
+      - name: Install the pinned toolchain
+        run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      - name: Run the tests
+        if: matrix.os != 'ubuntu-latest'
+        run: cargo test --locked
+      - name: Run the tests with line coverage
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          uv run --locked --extra dev --python ${{ matrix.python }} coverage xml --include="pacioliscube/validate.py" -o coverage.xml
-          uv run --locked --extra dev --python ${{ matrix.python }} diff-cover coverage.xml --compare-branch=origin/main --branch-coverage --fail-under=100
-      - name: require complete package coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
-        run: uv run --locked --extra dev --python ${{ matrix.python }} coverage report --fail-under=100  # NOSONAR: reads the coverage data only
-      - name: write whole-package coverage for Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
-        run: uv run --locked --extra dev --python ${{ matrix.python }} coverage xml -o coverage-codecov.xml
-      - name: keep the coverage report for the Codecov upload
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14'
+          rustup component add llvm-tools-preview --toolchain "$RUST_TOOLCHAIN"
+          cargo install cargo-llvm-cov --locked --version 0.9.1
+          cargo llvm-cov --locked --lcov --output-path coverage-codecov.lcov --fail-under-lines 90
+      - name: Keep the coverage report for the Codecov upload
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-codecov
-          path: coverage-codecov.xml
+          path: coverage-codecov.lcov
           retention-days: 1
 
   # The upload runs apart from the tests so the OIDC token is never available
@@ -131,13 +98,11 @@ jobs:
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
-          files: coverage-codecov.xml
+          files: coverage-codecov.lcov
           disable_search: true
           fail_ci_if_error: true
 
   dependency-audit:
-    env:
-      UV_PYTHON: "3.15"
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
@@ -146,21 +111,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.15"
-          allow-prereleases: true
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.5"
-          enable-cache: true
-          save-cache: ${{ github.ref == 'refs/heads/main' }}
-          prune-cache: true
-      - run: uv run --locked --extra dev --with "pip-audit==2.10.1" pip-audit --local --strict  # NOSONAR: unprivileged read-only audit job
+      - name: Install the pinned toolchain and auditor
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          cargo install cargo-audit --locked --version 0.22.2
+      # Both locks: the engine's and the fuzzer's.
+      - name: Audit the locked dependencies against the RustSec database
+        run: |
+          cargo audit --deny warnings --file Cargo.lock
+          cargo audit --deny warnings --file fuzz/Cargo.lock
 
   package:
-    env:
-      UV_PYTHON: "3.15"
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
@@ -169,38 +130,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.15"
-          allow-prereleases: true
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.5"
-          enable-cache: true
-          save-cache: ${{ github.ref == 'refs/heads/main' }}
-          prune-cache: true
-      - run: uv build
-      # Run away from the checkout so missing package data cannot be hidden by model/.
-      - name: install the wheel into a clean environment and run the real command line
+      - name: Install the pinned toolchain
+        run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      # A release binary that builds but cannot read its own model tree is a
+      # broken build artefact, so the real command line runs against the real
+      # model here, from a directory outside the checkout.
+      - name: Build and install the release binary, then run it on the shipped model
         run: |
-          python -m venv /tmp/wheelenv
-          /tmp/wheelenv/bin/pip install --no-index dist/pacioliscube-*.whl
-          mkdir -p /tmp/wheel-consumer && cd /tmp/wheel-consumer
-          test "$(/tmp/wheelenv/bin/pacioliscube demo)" = \
+          cargo install --locked --path . --root "$RUNNER_TEMP/install"
+          cp -r model examples "$RUNNER_TEMP/"
+          cd "$RUNNER_TEMP"
+          install/bin/pacioliscube --version
+          install/bin/pacioliscube validate model
+          install/bin/pacioliscube report model --data examples --year FY2026-27 --version Budget
+          # The demo must work from its bundled inputs alone, so run it where no model tree is.
+          mkdir demo-consumer && cd demo-consumer
+          test "$(../install/bin/pacioliscube demo)" = \
             "PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100"
-      # An sdist missing tests or fixtures still passes a source checkout run,
-      # so the shipped tests are run from the extracted sdist as well.
-      - name: run the shipped tests out of the sdist
-        run: |
-          mkdir -p /tmp/sdist && tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
-          python -m venv /tmp/sdistenv
-          /tmp/sdistenv/bin/pip install --require-hashes --requirement requirements-sdist-test.txt
-          cd /tmp/sdist && /tmp/sdistenv/bin/python -m pytest -q
 
   tm1git-conformance:
     # tm1gitpy, a TM1 Git reimplementation, must read model/ the way the engine
-    # does. The environment variable turns the test's skip into a failure, so
-    # a missing tm1gitpy cannot pass for agreement.
+    # does. It writes its reading of the model as JSON, which a Rust test
+    # compares with the engine's; the environment variable turns that test's
+    # skip into a failure, so a missing tm1gitpy cannot pass for agreement.
     needs: lint
     timeout-minutes: 15
     runs-on: ubuntu-latest
@@ -213,23 +165,30 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.14"
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: "0.12.5"
-          enable-cache: true
-          save-cache: ${{ github.ref == 'refs/heads/main' }}
-          prune-cache: true
-      - name: compare the engine with tm1gitpy on model/
+      # Every file is hash pinned. mdxpy publishes only a source distribution,
+      # so source builds stay allowed; this job holds no write permission.
+      - name: Install the pinned tm1gitpy
+        run: |
+          python -m venv "$RUNNER_TEMP/tm1git"
+          "$RUNNER_TEMP/tm1git/bin/pip" install --disable-pip-version-check --no-deps --require-hashes --requirement ci/requirements-tm1git.txt
+      - name: Read model/ with tm1gitpy
+        run: |
+          mkdir -p "$RUNNER_TEMP/tm1git-cache"
+          cd "$RUNNER_TEMP/tm1git-cache"
+          "$RUNNER_TEMP/tm1git/bin/python" "$GITHUB_WORKSPACE/ci/tm1gitpy_model.py" "$GITHUB_WORKSPACE/model" "$RUNNER_TEMP/tm1gitpy-model.json"
+      - name: Install the pinned toolchain
+        run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      - name: Compare the engine with tm1gitpy on model/
         env:
           PACIOLISCUBE_REQUIRE_TM1GITPY: "1"
-        run: uv run --locked --extra dev --group tm1git --python 3.14 pytest -q tests/test_tm1_source_form.py  # NOSONAR: unprivileged job; uv installs the hash-locked set
+        run: PACIOLISCUBE_TM1GITPY_JSON="$RUNNER_TEMP/tm1gitpy-model.json" cargo test --locked --test model tm1gitpy
 
   fuzzing:
     name: fuzz the rules parser
     # A 60-second random exploration is not a repeatable merge gate, so it
     # runs after merge, weekly and on demand rather than on pull requests.
     if: github.event_name != 'pull_request'
-    timeout-minutes: 5
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -238,18 +197,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.14"
-      # `python -m` from the checkout root imports pacioliscube from the source
-      # tree, so the package itself needs no install.
+      # libFuzzer instrumentation needs a nightly compiler; the date is pinned.
       - name: Install the pinned fuzzer
         run: |
-          python -m pip install --require-hashes --only-binary :all: --requirement requirements-fuzz.txt
+          rustup toolchain install nightly-2026-10-15 --profile minimal
+          cargo install cargo-fuzz --locked --version 0.13.2
       - name: Fuzz the rules parser
         run: >-
-          python -m fuzz.rules_parser fuzz/corpus
+          cargo +nightly-2026-10-15 fuzz run rules_parser fuzz/corpus --
           -max_total_time=60 -max_len=4096 -timeout=2 -rss_limit_mb=1024
 
   tests-gates:

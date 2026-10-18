@@ -1,25 +1,20 @@
-The Atheris target feeds fabricated text to the TM1 rules parser. It checks
-that every input either parses or raises `RuleSyntaxError`, that parsing the
-same text twice gives the same rule set, and that each rule's qualifier is one
-the grammar allows. Unexpected exceptions and failed invariants fail the run.
-The seed corpus holds the model's own rules files and a few edge cases.
+The cargo-fuzz target feeds fabricated bytes to the TM1 rules parser. It
+checks that every input either parses or is refused as a rules syntax error,
+that parsing the same text twice gives the same rule set, and that each rule's
+qualifier is one the grammar allows. Unexpected failures and failed invariants
+fail the run. The seed corpus holds the model's own rules files and a few edge
+cases.
 
-On Linux with Python 3.14, run:
+libFuzzer instrumentation needs a nightly compiler, so the toolchain date is
+pinned. On Linux, run:
 
 ```sh
-python -m pip install --require-hashes --only-binary :all: -r requirements-fuzz.txt
-python -m pip install --no-deps -e .
-python -m fuzz.rules_parser fuzz/corpus -max_total_time=60 -max_len=4096 -timeout=2 -rss_limit_mb=1024
+rustup toolchain install nightly-2026-10-15 --profile minimal
+cargo install cargo-fuzz --locked --version 0.13.2
+cargo +nightly-2026-10-15 fuzz run rules_parser fuzz/corpus -- -max_total_time=60 -max_len=4096 -timeout=2 -rss_limit_mb=1024
 ```
 
 CI runs the target after main pushes, weekly and on demand, with read-only
-repository access and a five-minute timeout. The test suite replays the seed
-corpus on every supported platform. Atheris does not support Windows, so
-coverage-guided fuzzing runs on Linux. A successful run is bounded evidence,
-not proof that every input is handled.
-
-After changing the pinned version, regenerate its hashes with:
-
-```sh
-uv pip compile requirements-fuzz.in --python-version 3.14 --python-platform x86_64-unknown-linux-gnu --generate-hashes --output-file requirements-fuzz.txt
-```
+repository access. The test suite replays the seed corpus on every supported
+platform (`tests/repository.rs`). A successful run is bounded evidence, not
+proof that every input is handled.

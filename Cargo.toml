@@ -1,0 +1,46 @@
+[package]
+name = "pacioliscube"
+version = "1.0.0"
+description = "An open IBM Planning Analytics budgeting model with an offline engine that computes and tests it."
+license = "Apache-2.0"
+authors = ["Ryan Duguid"]
+repository = "https://github.com/ryanduguid/planning-analytics-model"
+keywords = ["tm1", "planning-analytics", "budgeting", "fpa", "australia"]
+edition = "2024"
+rust-version = "1.99"
+publish = false
+# examples/ holds the model's CSV data, not Cargo examples.
+autoexamples = false
+autobenches = false
+
+[lib]
+name = "pacioliscube"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pacioliscube"
+path = "src/main.rs"
+
+[[bench]]
+name = "evaluate"
+path = "benches/evaluate.rs"
+harness = false
+
+[dependencies]
+num-bigint = "0.4.8"
+num-integer = "0.1.46"
+num-traits = "0.2.19"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Console"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.185"
+
+[dev-dependencies]
+sha2 = "0.11.1"
+tempfile = "3.27.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
