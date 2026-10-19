@@ -152,6 +152,20 @@ pacioliscube calculate model --data examples --cell "PnL:FY2026-27,Budget,FY,Gro
 Each report line is rounded to whole dollars on its own, so a subtotal can sit a
 dollar away from the lines above it. `calculate` prints the unrounded figure.
 
+For another reporting tool or a script, add `--format json` or `--format csv`
+to the same `report` command. Both write to standard output after the complete
+report has been calculated. Decimal values remain exact strings, without
+whole-dollar rounding or a conversion to floating point.
+
+JSON uses schema `profit-and-loss.v1`: the cube name and ordered rows, each with
+its account, resolved dimension coordinates, stored `value` and signed `effect`.
+Costs have a negative effect; a credit cost has a positive effect. CSV carries
+the cube and one column per applied dimension, followed by `value` and `effect`.
+CSV labels that start with spreadsheet formula prefixes get a leading apostrophe;
+JSON retains their exact text. Import CSV amount columns as text to preserve
+precision in Excel, whose numeric cells retain only 15 significant digits.
+The default `--format text` keeps the printed statement shown above.
+
 That block is engine output. The independent arithmetic behind these figures is
 in [native comparison](docs/native-comparison.md), which derives 8 cells from the
 synthetic inputs without the engine, and in the calculation tests.

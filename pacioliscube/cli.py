@@ -31,6 +31,8 @@ prove is wrong, so failing a build on one would make the check useless.
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import sys
 from decimal import Decimal
@@ -231,9 +233,35 @@ def _report_command(args: argparse.Namespace) -> int:
         for selection in selections
     ]
     values = list(_values(model, store, cells))
-    for line in report.lines(cube, selections, values):
-        print(line)
+    if args.format == "text":
+        for line in report.lines(cube, selections, values):
+            print(line)
+    else:
+        document = report.document(cube, selections, values)
+        if args.format == "json":
+            print(json.dumps(document, default=_plain, indent=2))
+        else:
+            _print_report_csv(cube, document)
     return EXIT_OK
+
+
+def _csv_label(value: str) -> str:
+    """Keep spreadsheet formula prefixes literal when CSV labels are opened in Excel."""
+    if value.lstrip().startswith(("=", "+", "-", "@")) or value.startswith(("\t", "\r", "\n")):
+        return "'" + value
+    return value
+
+
+def _print_report_csv(cube: Cube, document: dict) -> None:
+    # Build the whole document before emitting it, as the JSON report does.
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["cube", *cube.dimensions, "value", "effect"])
+    for row in document["rows"]:
+        labels = [cube.name, *(row["coordinate"][dimension] for dimension in cube.dimensions)]
+        writer.writerow([*(_csv_label(label) for label in labels),
+                         _plain(row["value"]), _plain(row["effect"])])
+    print(buffer.getvalue(), end="")
 
 
 def _explain_command(args: argparse.Namespace) -> int:
@@ -345,6 +373,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report_parser.add_argument(
         "--version", required=True, metavar="V", help="an element of the Version dimension"
+    )
+    report_parser.add_argument(
+        "--format", choices=("text", "json", "csv"), default="text",
+        help="output format: rounded text by default; JSON and CSV keep exact decimal strings",
     )
     report_parser.set_defaults(handler=_report_command)
     return parser
