@@ -84,13 +84,23 @@ onto the command line:
 - **Lone surrogates.** A JSON `\u` escape for a lone UTF-16 surrogate (U+D800
   to U+DFFF) is refused as invalid JSON when the model loads. 0.3.0 kept the
   character, then failed when printing it.
-- **Non-UTF-8 names.** On Linux, a command line argument that is not UTF-8
-  is refused with an unexpected-error line and exit 1, and a file name that is
-  not UTF-8 is read with replacement characters. 0.3.0 carried such bytes
-  through with `surrogateescape`.
+- **Non-UTF-8 names.** A command line argument, or a file name the engine
+  reads from the file system (a model or data directory entry, a symbolic
+  link's target, the working directory), that is not Unicode text is refused
+  with an unexpected-error line (`UnicodeError`) and exit 1. Reading it under
+  replacement characters instead could name a different file and change a
+  figure. 0.3.0 carried such bytes through with `surrogateescape`. A
+  non-CSV file in a data directory is still ignored, whatever its name.
 - **Interleaving.** Where stdout and stderr go to the same file, the order of
   their lines may differ from 0.3.0's, whose buffer sizes it does not copy.
   Each stream on its own is identical.
+- **Output encoding.** Output is always UTF-8, which is also Python 3.15's
+  default; `PYTHONIOENCODING` is not read. `PYTHONUNBUFFERED` is: as in
+  0.3.0, it makes stdout flush at each line, so a failed write ends the
+  command with exit 1 rather than failing the final flush with exit 120.
+- **Demo storage.** `demo` writes its built-in model and data to a new
+  private temporary directory and removes it afterwards, so it needs
+  writable temporary storage; 0.3.0 read its package data in place.
 - **Operating-system messages.** File errors are worded as Python worded them
   for the common cases (missing file, permission refused, sharing violation);
   unusual error codes may be worded differently. On Windows, a path that

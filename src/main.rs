@@ -79,8 +79,10 @@ fn run() -> i32 {
     }
     let terminal = Terminal::detect();
     // Python buffers stdout when it is not a terminal and flushes it by line
-    // when it is; stderr is written as each line is printed.
-    if terminal.stdout_tty {
+    // when it is or when PYTHONUNBUFFERED is set, so a failed write ends the
+    // command at the print that failed; stderr is written as each line is printed.
+    let unbuffered = std::env::var_os("PYTHONUNBUFFERED").is_some_and(|v| !v.is_empty());
+    if terminal.stdout_tty || unbuffered {
         run_with(LineWriter::new(std::io::stdout()), &argv, &terminal)
     } else {
         run_with(

@@ -285,6 +285,7 @@ fn a_file_name_that_is_not_unicode_text_is_refused_not_replaced() {
 fn a_failed_final_flush_exits_120_as_python_does() {
     let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
         .arg("--help")
+        .env_remove("PYTHONUNBUFFERED")
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -298,6 +299,23 @@ fn a_failed_final_flush_exits_120_as_python_does() {
         err.starts_with("Exception ignored while flushing sys.stdout:\n"),
         "{err}"
     );
+}
+
+#[test]
+fn pythonunbuffered_ends_the_command_at_the_failed_print() {
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .arg("demo")
+        .env("PYTHONUNBUFFERED", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(child.stdout.take());
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n");
+    assert!(err.starts_with("pacioliscube: [Errno "), "{err}");
+    assert_eq!(err.lines().count(), 1, "{err}");
 }
 
 #[test]
