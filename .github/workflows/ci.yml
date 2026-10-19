@@ -175,13 +175,13 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/tm1git-cache"
           cd "$RUNNER_TEMP/tm1git-cache"
-          "$RUNNER_TEMP/tm1git/bin/python" "$GITHUB_WORKSPACE/ci/tm1gitpy_model.py" "$GITHUB_WORKSPACE/model" "$RUNNER_TEMP/tm1gitpy-model.json"
+          "$RUNNER_TEMP/tm1git/bin/python" "$GITHUB_WORKSPACE/ci/tm1gitpy_model.py" "$GITHUB_WORKSPACE/model" tm1gitpy-model.json
       - name: Install the pinned toolchain
         run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
       - name: Compare the engine with tm1gitpy on model/
         env:
           PACIOLISCUBE_REQUIRE_TM1GITPY: "1"
-        run: PACIOLISCUBE_TM1GITPY_JSON="$RUNNER_TEMP/tm1gitpy-model.json" cargo test --locked --test model tm1gitpy
+        run: PACIOLISCUBE_TM1GITPY_JSON="$RUNNER_TEMP/tm1git-cache/tm1gitpy-model.json" cargo test --locked --test model tm1gitpy
 
   fuzzing:
     name: fuzz the rules parser

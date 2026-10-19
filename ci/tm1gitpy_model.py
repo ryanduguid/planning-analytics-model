@@ -3,12 +3,14 @@
 usage: python ci/tm1gitpy_model.py MODEL_DIR OUTPUT.json
 
 Run from a scratch directory: tm1gitpy keeps a SQLite cache under .tm1gitpy/
-in the working directory. tests/model.rs compares the output with the
+in the working directory, and OUTPUT.json, a bare file name, is written
+there too. tests/model.rs compares the output with the
 engine's own reading of the same tree. Weights are written as strings so no
 float conversion stands between the two readers.
 """
 
 import json
+import os
 import sys
 
 from tm1_git_py.services import deserializer
@@ -16,6 +18,9 @@ from tm1_git_py.services import deserializer
 
 def main() -> int:
     model_dir, output = sys.argv[1], sys.argv[2]
+    name = os.path.basename(output)
+    if name != output or name in {"", ".", ".."}:
+        raise SystemExit("OUTPUT.json must be a file name in the working directory")
     model, errors = deserializer.deserialize_model(model_dir, max_workers=2)
     tree = model.to_dict()
     for dimension in tree["dimensions"]:
@@ -31,7 +36,7 @@ def main() -> int:
             {"name": process["name"], "code_link": process["code_link"]} for process in tree["processes"]
         ],
     }
-    with open(output, "w", encoding="utf-8") as handle:
+    with open(name, "w", encoding="utf-8") as handle:
         json.dump(document, handle, indent=2, default=str)
     return 0
 
