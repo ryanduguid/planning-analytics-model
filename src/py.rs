@@ -523,6 +523,29 @@ pub fn oserror_str(error: &io::Error, filename: &str, style: OsStyle) -> String 
     }
 }
 
+/// `type(error).__name__` and `str(error)` for a failed write to a standard
+/// stream, which carries no filename: `OSError: [Errno 22] Invalid argument`.
+pub fn stream_oserror(error: &io::Error) -> (&'static str, String) {
+    let Some(code) = error.raw_os_error() else {
+        return ("OSError", error.to_string());
+    };
+    #[cfg(windows)]
+    {
+        let (errno, text) = crt_errno(code);
+        ("OSError", format!("[Errno {errno}] {text}"))
+    }
+    #[cfg(not(windows))]
+    {
+        let name = if code == 32 {
+            "BrokenPipeError"
+        } else {
+            "OSError"
+        };
+        let text = format!("[Errno {code}] {}", strip_os_suffix(&error.to_string()));
+        (name, text)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

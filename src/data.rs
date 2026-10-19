@@ -13,7 +13,7 @@ use crate::error::{EXIT_USAGE, Error, Result, Uncaught};
 use crate::evaluate::CellStore;
 use crate::model::{Cube, Model};
 use crate::py::{self, OsStyle};
-use crate::pypath::PyPath;
+use crate::pypath::{self, PyPath};
 
 /// The stem of a data file names the cube it feeds. The shipped example files are
 /// listed rather than derived, because pnl-direct is not spelt like the cube it
@@ -180,15 +180,26 @@ pub fn cube_for_file<'a>(model: &'a Model, path: &PyPath) -> Result<&'a Cube> {
 }
 
 /// `directory.iterdir()`, filtered to CSV files and sorted as `sorted()` did.
-fn csv_files(directory: &PyPath) -> std::io::Result<Vec<PyPath>> {
+/// A CSV whose name is not Unicode text is refused rather than skipped.
+fn csv_files(directory: &PyPath) -> Result<Vec<PyPath>> {
+    let unreadable = |e: std::io::Error| {
+        Error::cli(
+            EXIT_USAGE,
+            format!(
+                "{directory}: the data directory could not be read, {}",
+                py::oserror_str(&e, &directory.display(), OsStyle::Native)
+            ),
+        )
+    };
     let mut files = Vec::new();
-    for entry in std::fs::read_dir(directory.fs())? {
-        let entry = entry?;
-        let name = entry.file_name().to_string_lossy().into_owned();
-        let path = directory.join(&name);
-        if path.is_file() && py::casefold(path.suffix()) == ".csv" {
-            files.push(path);
+    for entry in std::fs::read_dir(directory.fs()).map_err(unreadable)? {
+        let entry = entry.map_err(unreadable)?;
+        let raw = entry.file_name();
+        let suffix = py::casefold(PyPath::new(&raw.to_string_lossy()).suffix());
+        if suffix != ".csv" || !std::fs::metadata(entry.path()).is_ok_and(|m| m.is_file()) {
+            continue;
         }
+        files.push(directory.join(&pypath::fs_text(&raw)?));
     }
     files.sort();
     Ok(files)
@@ -198,15 +209,7 @@ fn csv_files(directory: &PyPath) -> std::io::Result<Vec<PyPath>> {
 pub fn load_data(model: &Model, directory: &PyPath) -> Result<CellStore> {
     let mut store = CellStore::new();
     let boundary = directory.resolve()?;
-    let files = csv_files(directory).map_err(|e| {
-        Error::cli(
-            EXIT_USAGE,
-            format!(
-                "{directory}: the data directory could not be read, {}",
-                py::oserror_str(&e, &directory.display(), OsStyle::Native)
-            ),
-        )
-    })?;
+    let files = csv_files(directory)?;
     if files.is_empty() {
         return Err(Error::cli(
             EXIT_USAGE,

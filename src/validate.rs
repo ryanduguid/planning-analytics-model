@@ -512,7 +512,8 @@ fn validate_feeding(model: &Model) -> Result<Vec<Finding>> {
 }
 
 /// `root.rglob("*")`: every entry below the root, not following directory links.
-fn rglob(root: &PyPath) -> Vec<PyPath> {
+/// An entry whose name is not Unicode text is refused rather than replaced.
+fn rglob(root: &PyPath) -> Result<Vec<PyPath>> {
     let mut found = Vec::new();
     let mut pending = vec![root.clone()];
     while let Some(directory) = pending.pop() {
@@ -520,7 +521,7 @@ fn rglob(root: &PyPath) -> Vec<PyPath> {
             continue;
         };
         for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
+            let name = pypath::fs_text(&entry.file_name())?;
             let path = directory.join(&name);
             let is_dir = entry.file_type().is_ok_and(|t| t.is_dir());
             if is_dir {
@@ -529,7 +530,7 @@ fn rglob(root: &PyPath) -> Vec<PyPath> {
             found.push(path);
         }
     }
-    found
+    Ok(found)
 }
 
 fn validate_manifest(model: &Model) -> Result<Vec<Finding>> {
@@ -537,7 +538,7 @@ fn validate_manifest(model: &Model) -> Result<Vec<Finding>> {
     for path in &model.files {
         listed.insert(pypath::eq_key(&path.resolve()?));
     }
-    let mut paths: Vec<(Vec<String>, PyPath)> = rglob(&model.root)
+    let mut paths: Vec<(Vec<String>, PyPath)> = rglob(&model.root)?
         .into_iter()
         .map(|p| (pypath::sort_key(&p), p))
         .collect();

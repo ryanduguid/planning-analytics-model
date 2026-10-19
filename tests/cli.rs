@@ -177,6 +177,130 @@ fn the_model_directory_defaults_to_the_model_folder() {
 }
 
 #[test]
+fn an_empty_model_directory_argument_means_the_default_folder() {
+    // `args.model_dir or DEFAULT_MODEL_ROOT` treats "" as absent.
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .args(["validate", ""])
+        .current_dir(repo())
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("0 errors, 0 warnings"));
+}
+
+/// A destination that refuses every write, as a full disk or closed pipe does.
+struct Refusing;
+
+impl std::io::Write for Refusing {
+    fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+        Err(std::io::Error::other("the destination refused the write"))
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_failed_write_ends_the_command_as_an_os_error() {
+    let model = s(&model_root());
+    let data = s(&examples());
+    let cell = CELL.to_string();
+    let (code, err) = big_stack(move || {
+        let mut err = Vec::new();
+        let argv: Vec<String> = [
+            "calculate",
+            &model,
+            "--data",
+            &data,
+            "--cell",
+            &cell,
+            "--cell",
+            &cell,
+        ]
+        .iter()
+        .map(|a| a.to_string())
+        .collect();
+        let code = pacioliscube::cli::main(
+            &argv,
+            &pacioliscube::terminal::Terminal::plain(),
+            &mut pacioliscube::cli::Streams {
+                out: &mut Refusing,
+                err: &mut err,
+            },
+        );
+        (code, String::from_utf8(err).unwrap())
+    });
+    // Python's OSError backstop: one message and exit 1, and no second cell.
+    assert_eq!(code, 1);
+    assert_eq!(err, "pacioliscube: the destination refused the write\n");
+}
+
+/// A model or data file whose name is not Unicode text is refused, never read
+/// under a replacement-character name that could be a different file.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_file_name_that_is_not_unicode_text_is_refused_not_replaced() {
+    use std::os::unix::ffi::OsStrExt;
+    let odd = |name: &[u8]| std::ffi::OsStr::from_bytes(name).to_os_string();
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), "", &[]);
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+    let cell = ["--cell", "Sales:Total,Units"];
+    let (code, out, err) = run(&[&["calculate", &root, "--data", &data][..], &cell].concat());
+    assert_eq!(
+        (code, out.as_str()),
+        (0, "Sales:Total,Units = 10\n"),
+        "{err}"
+    );
+
+    std::fs::write(
+        Path::new(&data).join(odd(b"\xff.csv")),
+        "Colour,Measure,Value\n",
+    )
+    .unwrap();
+    let (code, out, err) = run(&[&["calculate", &root, "--data", &data][..], &cell].concat());
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(
+        err.contains("UnicodeError: a file name is not UTF-8 text"),
+        "{err}"
+    );
+
+    std::fs::write(Path::new(&root).join(odd(b"\xff.json")), "{}").unwrap();
+    let (code, _, err) = run(&["validate", &root]);
+    assert_eq!(code, 1);
+    assert!(
+        err.contains("UnicodeError: a file name is not UTF-8 text"),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_failed_final_flush_exits_120_as_python_does() {
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .arg("--help")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    // Close the reading end before the help text is flushed.
+    drop(child.stdout.take());
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(output.status.code(), Some(120));
+    let err = String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n");
+    assert!(
+        err.starts_with("Exception ignored while flushing sys.stdout:\n"),
+        "{err}"
+    );
+}
+
+#[test]
 fn a_finding_prints_as_severity_code_location_then_message() {
     let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), UNKNOWN_ELEMENT_RULES, &[]);

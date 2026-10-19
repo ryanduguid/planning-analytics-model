@@ -47,13 +47,18 @@ pub struct Streams<'a> {
 }
 
 impl Streams<'_> {
-    fn print(&mut self, line: &str) {
-        let _ = writeln!(self.out, "{line}");
+    /// `print(line)`: a failed write raises, as Python's OSError would.
+    fn print(&mut self, line: &str) -> Result<()> {
+        writeln!(self.out, "{line}").map_err(stream_failure)
     }
 
-    fn eprint(&mut self, line: &str) {
-        let _ = writeln!(self.err, "{line}");
+    fn eprint(&mut self, line: &str) -> Result<()> {
+        writeln!(self.err, "{line}").map_err(stream_failure)
     }
+}
+
+fn stream_failure(error: std::io::Error) -> Error {
+    Error::Os(py::stream_oserror(&error).1)
 }
 
 /// Resolve an element name, taking the exit code that fits who supplied it.
@@ -80,7 +85,9 @@ fn directory(argument: &str, what: &str) -> Result<PyPath> {
 }
 
 fn model_root(args: &Namespace) -> Result<PyPath> {
-    directory(args.str("model_dir").unwrap_or(DEFAULT_MODEL_ROOT), "model")
+    // `args.model_dir or DEFAULT_MODEL_ROOT`: an empty argument also means the default.
+    let argument = args.str("model_dir").filter(|s| !s.is_empty());
+    directory(argument.unwrap_or(DEFAULT_MODEL_ROOT), "model")
 }
 
 fn load(root: &PyPath) -> Result<Model> {
@@ -142,7 +149,7 @@ fn refuse_broken_model(model: &Model, streams: &mut Streams) -> Result<()> {
         return Ok(());
     }
     for finding in &errors {
-        streams.eprint(&format_finding(finding));
+        streams.eprint(&format_finding(finding))?;
     }
     Err(Error::cli(
         EXIT_INVALID_MODEL,
@@ -234,13 +241,13 @@ fn validate_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     let (errors, warnings): (Vec<&Finding>, Vec<&Finding>) =
         findings.iter().partition(|f| f.severity == ERROR);
     for finding in errors.iter().chain(&warnings) {
-        streams.print(&format_finding(finding));
+        streams.print(&format_finding(finding))?;
     }
     streams.print(&format!(
         "{}, {}",
         plural(errors.len(), "error"),
         plural(warnings.len(), "warning")
-    ));
+    ))?;
     Ok(if errors.is_empty() {
         EXIT_OK
     } else {
@@ -263,19 +270,19 @@ fn calculate_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     // a second rather than a full load and evaluation.
     let cells = parse_cells(&model, args)?;
     let store = evaluated(&model, &load_data(&model, &data)?)?;
-    let mut printing: Result<()> = Ok(());
-    evaluate::consolidate_many(&model, &store, &cells, |i, value| {
-        if printing.is_err() {
-            return;
-        }
+    // Python's loop body raises out of the loop, so a failed format or print
+    // stops the remaining cells from being evaluated, and keeps its own error.
+    let mut body: Result<()> = Ok(());
+    evaluate::consolidate_each(&model, &store, &cells, |i, value| {
         let (cube, coordinate) = &cells[i];
-        match plain(&value) {
-            Ok(text) => streams.print(&format!("{cube}:{} = {text}", coordinate.join(","))),
-            Err(error) => printing = Err(error),
-        }
+        let printed = plain(&value)
+            .and_then(|text| streams.print(&format!("{cube}:{} = {text}", coordinate.join(","))));
+        let go_on = printed.is_ok();
+        body = printed;
+        go_on
     })
     .map_err(calculation)?;
-    printing?;
+    body?;
     Ok(EXIT_OK)
 }
 
@@ -312,14 +319,14 @@ fn report_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     match args.str("format").unwrap_or("text") {
         "text" => {
             for line in report::lines(cube, &selections, &values)? {
-                streams.print(&line);
+                streams.print(&line)?;
             }
         }
-        "json" => streams.print(&pyjson::dumps(&report_json(cube, &selections, &values)?)),
+        "json" => streams.print(&pyjson::dumps(&report_json(cube, &selections, &values)?))?,
         _ => {
             let csv = report_csv(cube, &selections, &values)?;
             // csv.writer ends every row with its line terminator, and print adds none.
-            streams.print(csv.strip_suffix('\n').unwrap_or(&csv));
+            streams.print(csv.strip_suffix('\n').unwrap_or(&csv))?;
         }
     }
     Ok(EXIT_OK)
@@ -404,10 +411,12 @@ fn demo_command(streams: &mut Streams) -> Result<i32> {
             format!("the demo inputs could not be written to a temporary directory, {error}"),
         )
     })?;
-    let path = |p: std::path::PathBuf| Value::Str(p.to_string_lossy().into_owned());
+    let path = |p: std::path::PathBuf| -> Result<Value> {
+        Ok(Value::Str(crate::pypath::fs_text(p.as_os_str())?))
+    };
     let mut args = Namespace::default();
-    args.values.insert("model_dir", path(unpacked.model()));
-    args.values.insert("data", path(unpacked.data()));
+    args.values.insert("model_dir", path(unpacked.model())?);
+    args.values.insert("data", path(unpacked.data())?);
     args.values
         .insert("cell", Value::List(vec![crate::demo::CELL.to_string()]));
     calculate_command(&args, streams)
@@ -526,7 +535,7 @@ fn explain_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     let explanation = evaluate::explain(&model, &load_data(&model, &data)?, &cells)?;
     // Finish the entire request before printing, so failures leave no partial JSON.
     let text = pyjson::dumps(&explanation_out(&explanation)?);
-    streams.print(&text);
+    streams.print(&text)?;
     Ok(EXIT_OK)
 }
 
@@ -689,7 +698,7 @@ fn compare_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
             ),
         ),
     ]);
-    streams.print(&pyjson::dumps(&document));
+    streams.print(&pyjson::dumps(&document))?;
     Ok(EXIT_OK)
 }
 
@@ -901,20 +910,20 @@ pub fn main(argv: &[String], terminal: &Terminal, streams: &mut Streams) -> i32 
     match dispatch(&args, streams) {
         Ok(code) => code,
         Err(Error::Cli(code, message)) => {
-            streams.eprint(&format!("pacioliscube: {message}"));
+            let _ = streams.eprint(&format!("pacioliscube: {message}"));
             code
         }
         Err(Error::Evaluation(message)) => {
-            streams.eprint(&format!("pacioliscube: {message}"));
+            let _ = streams.eprint(&format!("pacioliscube: {message}"));
             EXIT_CALCULATION
         }
         Err(Error::Model(message)) => {
-            streams.eprint(&format!("pacioliscube: {message}"));
+            let _ = streams.eprint(&format!("pacioliscube: {message}"));
             EXIT_INVALID_MODEL
         }
         Err(Error::Os(message) | Error::Decode(message)) => {
             // A backstop: the places that read a file map their own failures.
-            streams.eprint(&format!("pacioliscube: {message}"));
+            let _ = streams.eprint(&format!("pacioliscube: {message}"));
             EXIT_USAGE
         }
         Err(Error::RuleSyntax(message)) => {
@@ -934,9 +943,9 @@ pub fn main(argv: &[String], terminal: &Terminal, streams: &mut Streams) -> i32 
 /// Where the Python engine ended in a traceback, the binary says what was raised.
 fn uncaught(streams: &mut Streams, error: &Uncaught) {
     if error.message.is_empty() {
-        streams.eprint(&format!("pacioliscube: unexpected error: {}", error.name));
+        let _ = streams.eprint(&format!("pacioliscube: unexpected error: {}", error.name));
     } else {
-        streams.eprint(&format!(
+        let _ = streams.eprint(&format!(
             "pacioliscube: unexpected error: {}: {}",
             error.name, error.message
         ));

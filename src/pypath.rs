@@ -330,10 +330,27 @@ pub fn eq_key(path: &PyPath) -> String {
     path.normcase()
 }
 
-fn cwd() -> String {
-    std::env::current_dir()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default()
+/// A name from the file system as text. A name that is not Unicode text is
+/// refused rather than read with replacement characters, which could name a
+/// different file.
+pub fn fs_text(name: &std::ffi::OsStr) -> Result<String, Uncaught> {
+    match name.to_str() {
+        Some(text) => Ok(text.to_string()),
+        None => Err(Uncaught::new(
+            "UnicodeError",
+            format!(
+                "a file name is not UTF-8 text: {}",
+                py::repr_str(&name.to_string_lossy())
+            ),
+        )),
+    }
+}
+
+fn cwd() -> Result<String, Uncaught> {
+    match std::env::current_dir() {
+        Ok(path) => fs_text(path.as_os_str()),
+        Err(_) => Ok(String::new()),
+    }
 }
 
 #[cfg(not(windows))]
@@ -376,7 +393,7 @@ pub fn realpath(filename: &str) -> Result<String, Uncaught> {
     let mut path = if filename.starts_with('/') {
         "/".to_string()
     } else {
-        cwd()
+        cwd()?
     };
     let mut seen: HashMap<String, Option<String>> = HashMap::new();
     while part_count > 0 {
@@ -428,7 +445,7 @@ pub fn realpath(filename: &str) -> Result<String, Uncaught> {
                     continue;
                 }
                 match std::fs::read_link(&newpath) {
-                    Ok(target) => target.to_string_lossy().into_owned(),
+                    Ok(target) => fs_text(target.as_os_str())?,
                     Err(_) => {
                         path = newpath;
                         continue;
@@ -501,22 +518,23 @@ fn split(p: &str) -> (String, String) {
     )
 }
 
+/// `_getfinalpathname(path)`: the final path, or the Windows error code.
 #[cfg(windows)]
-fn final_path(path: &str) -> Result<String, i32> {
+fn final_path(path: &str) -> Result<Result<String, i32>, Uncaught> {
     match std::fs::canonicalize(path) {
-        Ok(p) => Ok(p.to_string_lossy().into_owned()),
-        Err(e) => Err(e.raw_os_error().unwrap_or(0)),
+        Ok(p) => Ok(Ok(fs_text(p.as_os_str())?)),
+        Err(e) => Ok(Err(e.raw_os_error().unwrap_or(0))),
     }
 }
 
 #[cfg(windows)]
-fn readlink_deep(mut path: String) -> String {
+fn readlink_deep(mut path: String) -> Result<String, Uncaught> {
     let mut seen = std::collections::HashSet::new();
     while seen.insert(path.to_lowercase()) {
         let old = path.clone();
         match std::fs::read_link(&path) {
             Ok(target) => {
-                let target = target.to_string_lossy().into_owned();
+                let target = fs_text(target.as_os_str())?;
                 if !isabs(&target) {
                     let is_link =
                         std::fs::symlink_metadata(&old).is_ok_and(|m| m.file_type().is_symlink());
@@ -532,34 +550,34 @@ fn readlink_deep(mut path: String) -> String {
             Err(_) => break,
         }
     }
-    path
+    Ok(path)
 }
 
 #[cfg(windows)]
-fn final_path_nonstrict(mut path: String) -> String {
+fn final_path_nonstrict(mut path: String) -> Result<String, Uncaught> {
     let mut tail = String::new();
     while !path.is_empty() {
-        match final_path(&path) {
+        match final_path(&path)? {
             Ok(found) => {
-                return if tail.is_empty() {
+                return Ok(if tail.is_empty() {
                     found
                 } else {
                     join(&found, &tail)
-                };
+                });
             }
             Err(_) => {
-                let new_path = readlink_deep(path.clone());
+                let new_path = readlink_deep(path.clone())?;
                 if new_path != path {
-                    return if tail.is_empty() {
+                    return Ok(if tail.is_empty() {
                         new_path
                     } else {
                         join(&new_path, &tail)
-                    };
+                    });
                 }
                 let (head, name) = split(&path);
                 path = head;
                 if !path.is_empty() && name.is_empty() {
-                    return format!("{path}{tail}");
+                    return Ok(format!("{path}{tail}"));
                 }
                 tail = if tail.is_empty() {
                     name
@@ -569,7 +587,7 @@ fn final_path_nonstrict(mut path: String) -> String {
             }
         }
     }
-    tail
+    Ok(tail)
 }
 
 /// `ntpath.realpath(path)`, non-strict.
@@ -582,19 +600,19 @@ pub fn realpath(path: &str) -> Result<String, Uncaught> {
     let prefix = "\\\\?\\";
     let had_prefix = path.starts_with(prefix);
     if !had_prefix && !isabs(&path) {
-        path = join(&cwd(), &path);
+        path = join(&cwd()?, &path);
     }
     if path.contains('\0') {
         // _getfinalpathname raises ValueError; realpath keeps the absolute path.
         return Ok(normpath(&path));
     }
-    let initial = match final_path(&path) {
+    let initial = match final_path(&path)? {
         Ok(found) => {
             path = found;
             0
         }
         Err(code) => {
-            path = final_path_nonstrict(path);
+            path = final_path_nonstrict(path)?;
             code
         }
     };
@@ -603,7 +621,7 @@ pub fn realpath(path: &str) -> Result<String, Uncaught> {
             Some(rest) => format!("\\\\{rest}"),
             None => path[prefix.len()..].to_string(),
         };
-        match final_path(&spath) {
+        match final_path(&spath)? {
             Ok(found) if found == path => path = spath,
             Err(code) if code == initial => path = spath,
             _ => {}

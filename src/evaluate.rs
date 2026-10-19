@@ -790,9 +790,26 @@ pub fn consolidate_many(
     cells: &[(String, Coordinate)],
     mut emit: impl FnMut(usize, Decimal),
 ) -> Result<()> {
+    consolidate_each(model, store, cells, |i, value| {
+        emit(i, value);
+        true
+    })
+}
+
+/// As `consolidate_many`, but `emit` returns whether to go on, so a consumer
+/// that fails stops the remaining cells from being evaluated, as an exception
+/// in the body of a Python loop over the generator does.
+pub fn consolidate_each(
+    model: &Model,
+    store: &CellStore,
+    cells: &[(String, Coordinate)],
+    mut emit: impl FnMut(usize, Decimal) -> bool,
+) -> Result<()> {
     let mut engine = Engine::new(model, store, false);
     for (i, (cube, coordinate)) in cells.iter().enumerate() {
-        emit(i, engine.value(cube, coordinate)?);
+        if !emit(i, engine.value(cube, coordinate)?) {
+            break;
+        }
     }
     Ok(())
 }
