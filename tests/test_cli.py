@@ -1,5 +1,6 @@
 """The command line: what each subcommand prints and which exit code it returns."""
 
+import csv
 import io
 import json
 import shutil
@@ -643,6 +644,124 @@ def test_the_report_totals_the_shipped_budget():
         "Depreciation": "(1,382,143)",
         "EBIT": "18,684,640",
     }
+
+
+def test_json_report_retains_exact_values_coordinates_and_deduction_signs():
+    code, out, err = run(*BUDGET_REPORT, "--format", "json")
+    assert code == 0, err
+    document = json.loads(out)
+    assert document["schema_version"] == "profit-and-loss.v1"
+    assert document["cube"] == "PnL"
+    assert [row["account"] for row in document["rows"]] == list(STATEMENT_ROWS)
+    for row in document["rows"]:
+        coordinate = row["coordinate"]
+        assert coordinate["Year"] == "FY2026-27"
+        assert coordinate["Version"] == "Budget"
+        cell = "PnL:" + ",".join(coordinate.values())
+        calculated, value, errors = run("calculate", MODEL, "--data", EXAMPLES, "--cell", cell)
+        assert calculated == 0, errors
+        assert row["value"] == value.split(" = ")[1].strip()
+        effect = Decimal(row["value"])
+        if row["account"] in {"Direct Costs", "Employment Costs", "Overheads", "Depreciation"}:
+            effect = effect.copy_negate()
+        assert Decimal(row["effect"]) == effect
+
+
+def test_csv_report_matches_json_values_and_coordinates():
+    code, out, err = run(*BUDGET_REPORT, "--format", "csv")
+    assert code == 0, err
+    rows = list(csv.DictReader(io.StringIO(out)))
+    document = json.loads(run(*BUDGET_REPORT, "--format", "json")[1])
+    for row, expected in zip(rows, document["rows"], strict=True):
+        assert row == {"cube": "PnL", **expected["coordinate"],
+                       "value": expected["value"], "effect": expected["effect"]}
+
+
+@pytest.mark.parametrize("format_name", ["json", "csv"])
+def test_machine_report_failure_emits_no_partial_output(format_name):
+    code, out, err = run(*BUDGET_REPORT, "--year", "absent", "--format", format_name)
+    assert code == 1
+    assert out == ""
+    assert "absent" in err
+
+
+def test_report_text_format_remains_the_default():
+    assert run(*BUDGET_REPORT, "--format", "text") == run(*BUDGET_REPORT)
+
+
+def test_machine_report_keeps_precision_and_only_applied_dimensions(tmp_path):
+    root = build_report_model(
+        tmp_path / "model",
+        {"Year": ("FY2026-27",), "Version": ("Budget",), "Account": STATEMENT_ROWS},
+    )
+    data = write_report_data(tmp_path / "data", "Year,Version,Account,Value")
+    amount = "123456789012345678901234567890.123456789"
+    with (data / "PnL.csv").open("a", encoding="utf-8") as stream:
+        stream.write(f"FY2026-27,Budget,Direct Costs,{amount}\n")
+    args = ("report", root, "--data", str(data), "--year", "FY2026-27", "--version", "Budget")
+    code, out, err = run(*args, "--format", "json")
+    assert code == 0, err
+    row = json.loads(out)["rows"][1]
+    assert row["value"] == amount
+    assert row["effect"] == "-" + amount
+    assert list(row["coordinate"]) == ["Year", "Version", "Account"]
+    code, out, err = run(*args, "--format", "csv")
+    assert code == 0, err
+    row = list(csv.DictReader(io.StringIO(out)))[1]
+    assert row["value"] == amount
+    assert row["effect"] == "-" + amount
+    assert list(row) == ["cube", "Year", "Version", "Account", "value", "effect"]
+
+
+def test_machine_report_zero_deduction_has_no_negative_zero(tmp_path):
+    root = build_report_model(
+        tmp_path / "model",
+        {"Year": ("FY2026-27",), "Version": ("Budget",), "Account": STATEMENT_ROWS},
+    )
+    data = write_report_data(tmp_path / "data", "Year,Version,Account,Value")
+    args = ("report", root, "--data", str(data), "--year", "FY2026-27", "--version", "Budget")
+    for format_name in ("json", "csv"):
+        code, out, err = run(*args, "--format", format_name)
+        assert code == 0, err
+        rows = (json.loads(out)["rows"] if format_name == "json"
+                else list(csv.DictReader(io.StringIO(out))))
+        assert [row["effect"] for row in rows] == ["0"] * len(STATEMENT_ROWS)
+
+
+@pytest.mark.parametrize("label", ["=1+1", " +2", "-3", "@SUM(A1)", "\tlabel", "\rlabel", "\nlabel"])
+def test_csv_formula_labels_are_literal(label):
+    assert cli._csv_label(label) == "'" + label
+
+
+def test_csv_quotes_coordinates_without_changing_json_labels(tmp_path):
+    year = 'FY,"2027"'
+    root = build_report_model(
+        tmp_path / "model", {"Year": (year,), "Version": ("=1+1",), "Account": STATEMENT_ROWS},
+    )
+    data = write_report_data(tmp_path / "data", "Year,Version,Account,Value")
+    args = ("report", root, "--data", str(data), "--year", year, "--version", "=1+1")
+    code, out, err = run(*args, "--format", "csv")
+    assert code == 0, err
+    row = next(csv.DictReader(io.StringIO(out)))
+    assert row["Year"] == year
+    assert row["Version"] == "'=1+1"
+    code, out, err = run(*args, "--format", "json")
+    assert code == 0, err
+    assert json.loads(out)["rows"][0]["coordinate"]["Version"] == "=1+1"
+
+
+@pytest.mark.parametrize("format_name", ["json", "csv"])
+def test_machine_report_calculation_failure_emits_no_partial_output(monkeypatch, format_name):
+    def fail_values(*args):
+        yield Decimal("12.5")
+        raise cli.EvaluationError("cannot finish the report")
+
+    monkeypatch.setattr(cli, "_evaluate", lambda model, store: store)
+    monkeypatch.setattr(cli, "_values", fail_values)
+    code, out, err = run_once(*BUDGET_REPORT, "--format", format_name)
+    assert code == 3
+    assert out == ""
+    assert "cannot finish the report" in err
 
 
 def test_a_deduction_prints_in_brackets_and_a_result_prints_plain():
