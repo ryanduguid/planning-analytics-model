@@ -158,3 +158,17 @@ def lines(cube: Cube, selections: Sequence[dict], values: Sequence[Decimal]) -> 
     for label, amount in zip(labels, amounts):
         printed.append(f"{label:<{label_width}}  {amount:>{amount_width}}")
     return printed
+
+
+def document(cube: Cube, selections: Sequence[dict], values: Sequence[Decimal]) -> dict:
+    """Exact cell values and their signed effects, with the coordinates actually read."""
+    return {
+        "schema_version": "profit-and-loss.v1",
+        "cube": cube.name,
+        "rows": [
+            {"account": selection["Account"], "coordinate": dict(selection), "value": value,
+             # A zero cost stays 0, not -0, matching the text report.
+             "effect": value.copy_negate() if account in DEDUCTION_ROWS and value else value}
+            for account, selection, value in zip(REPORT_ROWS, selections, values, strict=True)
+        ],
+    }
