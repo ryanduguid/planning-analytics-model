@@ -644,7 +644,7 @@ const COST_ACCOUNTS: [&str; 11] = [
     "Depreciation",
 ];
 
-fn leaf_accounts() -> Vec<&'static str> {
+fn leaf_line_items() -> Vec<&'static str> {
     REVENUE_ACCOUNTS
         .iter()
         .chain(&COST_ACCOUNTS)
@@ -686,13 +686,13 @@ fn pnl_nodes(coordinates: Vec<Vec<String>>) -> Vec<Decimal> {
 
 #[test]
 fn the_model_has_enough_calculated_leaves_for_these_checks_to_mean_something() {
-    let accounts = leaf_accounts();
+    let line_items = leaf_line_items();
     let mut non_zero = Vec::new();
     for version in [BUDGET, ACTUAL] {
         for m in MONTHS {
             for e in ENTITIES {
                 for cc in COST_CENTRES {
-                    for a in &accounts {
+                    for a in &line_items {
                         if !pnl(version, m, e, cc, a).is_zero() {
                             non_zero.push([m, e, cc, a]);
                         }
@@ -702,9 +702,14 @@ fn the_model_has_enough_calculated_leaves_for_these_checks_to_mean_something() {
         }
     }
     assert!(non_zero.len() > 500);
-    for (position, members) in [&MONTHS[..], &ENTITIES[..], &COST_CENTRES[..], &accounts[..]]
-        .iter()
-        .enumerate()
+    for (position, members) in [
+        &MONTHS[..],
+        &ENTITIES[..],
+        &COST_CENTRES[..],
+        &line_items[..],
+    ]
+    .iter()
+    .enumerate()
     {
         for member in members.iter() {
             assert!(
@@ -715,7 +720,7 @@ fn the_model_has_enough_calculated_leaves_for_these_checks_to_mean_something() {
     }
     let limit = d(TOLERANCE);
     for version in [BUDGET, ACTUAL] {
-        for line_item in &accounts {
+        for line_item in &line_items {
             let total = leaf_sum(version, &MONTHS, &ENTITIES, &COST_CENTRES, &[line_item]);
             assert!(
                 total > limit || total < limit.neg().unwrap(),
@@ -736,7 +741,7 @@ fn the_model_has_enough_calculated_leaves_for_these_checks_to_mean_something() {
 
 #[test]
 fn group_and_entities_are_the_sums_of_their_leaves() {
-    let accounts = leaf_accounts();
+    let accounts = leaf_line_items();
     for version in [BUDGET, ACTUAL] {
         let mut cells = Vec::new();
         for m in MONTHS {
@@ -789,7 +794,7 @@ fn group_and_entities_are_the_sums_of_their_leaves() {
 
 #[test]
 fn quarters_and_the_year_are_the_sums_of_their_months() {
-    let accounts = leaf_accounts();
+    let accounts = leaf_line_items();
     for version in [BUDGET, ACTUAL] {
         let mut leaves = Vec::new();
         for e in ENTITIES {

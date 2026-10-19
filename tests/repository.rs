@@ -63,7 +63,7 @@ fn unexpected_parser_errors_and_changing_answers_fail_the_check() {
 
 // ---------------------------------------------------------------- release
 
-const POLICY: &str = "a601f1d8b143f92b0517f709216993660d21f480";
+const POLICY: &str = "0f7ca4ce0ba2e7ea52fc611149a42cd5d0a26f6c";
 const REQUIRED: [&str; 9] = [
     ".github/workflows/no-ai-attribution.yml: Attribution policy / Attribution policy runner",
     ".github/workflows/ci.yml: dependency-audit",
