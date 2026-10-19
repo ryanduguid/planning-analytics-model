@@ -921,7 +921,7 @@ fn independent(test: &str) {
 
 /// The example inputs copied to a scratch directory, less the case's removed rows.
 fn altered_inputs(case: &Json) -> tempfile::TempDir {
-    let scratch = tempfile::tempdir().unwrap();
+    let scratch = tempdir();
     for entry in std::fs::read_dir(examples()).unwrap() {
         let path = entry.unwrap().path();
         std::fs::copy(&path, scratch.path().join(path.file_name().unwrap())).unwrap();

@@ -271,7 +271,7 @@ fn drivers_rows(model: &Model, path: &PyPath) -> Result<Vec<(Vec<String>, Decima
 #[test]
 fn a_long_format_csv_loads_into_canonical_coordinates() {
     let model = shipped();
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let rows = drivers_rows(
         &model,
         &write_csv(tmp.path(), "FY2026-27,Budget,Full Year,SG Rate,0.12\n"),
@@ -295,7 +295,7 @@ fn conflicting_rows_name_the_file_and_both_row_numbers() {
         "FY2026-27,Budget,Full Year,SG Rate,0.13",
         " fy2026-27 ,BUDGET,full year,sg rate,0.13",
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let path = write_csv(
             tmp.path(),
             &format!("FY2026-27,Budget,Full Year,SG Rate,0.12\n\n{second}\n"),
@@ -321,7 +321,7 @@ fn conflicting_rows_name_the_file_and_both_row_numbers() {
 #[test]
 fn repeated_rows_with_equal_decimal_values_remain_valid() {
     let model = shipped();
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_csv(
         tmp.path(),
         "FY2026-27,Budget,Full Year,SG Rate,0.12\nfy2026-27,budget,full year,sg rate,0.120\n",
@@ -357,7 +357,7 @@ fn bad_rows_are_model_errors_with_row_context() {
         ("FY2026-27,Budget,Full Year,SG Rate\n", &["row 2"]),
     ];
     for (body, expected) in cases {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let path = write_csv(tmp.path(), body);
         let error = drivers_rows(&model, &path).unwrap_err();
         assert!(matches!(error, Error::Model(_)));
@@ -375,7 +375,7 @@ fn bad_rows_are_model_errors_with_row_context() {
 #[test]
 fn a_header_with_the_wrong_column_count_is_a_model_error() {
     let model = shipped();
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = tmp.path().join("input.csv");
     std::fs::write(&path, "Year,Version,Value\n").unwrap();
     let message = drivers_rows(&model, &PyPath::new(&s(&path)))
@@ -387,7 +387,7 @@ fn a_header_with_the_wrong_column_count_is_a_model_error() {
 #[test]
 fn blank_rows_are_skipped_and_values_stay_decimal() {
     let model = shipped();
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_csv(tmp.path(), "\nFY2026-27,Budget,Full Year,SG Rate,0.1\n\n");
     let rows = drivers_rows(&model, &path).unwrap();
     assert_eq!(rows.len(), 1);
@@ -397,7 +397,7 @@ fn blank_rows_are_skipped_and_values_stay_decimal() {
 #[test]
 fn a_byte_order_mark_is_tolerated() {
     let model = shipped();
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = tmp.path().join("input.csv");
     let mut bytes = b"\xef\xbb\xbf".to_vec();
     bytes.extend(format!("{HEADER}FY2026-27,Budget,Full Year,SG Rate,0.12\n").bytes());
@@ -492,7 +492,7 @@ fn current_element_marker_binds_to_the_cell_being_calculated() {
 
 #[test]
 fn the_two_divide_operators() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(tmp.path(), "['Amount'] = N: ['Units'] \\ ['Price'];");
     let mut store = CellStore::new();
     set(&mut store, "Sales", &["Red", "Units"], "10");
@@ -505,7 +505,7 @@ fn the_two_divide_operators() {
         d("0")
     );
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(tmp.path(), "['Amount'] = N: ['Units'] / ['Price'];");
     let error = eval_err(&model, &store);
     assert!(matches!(&error, Error::Evaluation(m) if m.contains("division by zero")));
@@ -534,7 +534,7 @@ fn rules_depending_on_rules_evaluate_in_order() {
 
 #[test]
 fn a_circular_rule_raises_circular_reference() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(
         tmp.path(),
         "['Amount'] = N: ['Margin'];\n['Margin'] = N: ['Amount'];",
@@ -548,7 +548,7 @@ fn a_circular_rule_raises_circular_reference() {
 
 #[test]
 fn evaluation_is_decimal_not_float() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(tmp.path(), "['Amount'] = N: ['Units'] + ['Price'];");
     let mut store = CellStore::new();
     set(&mut store, "Sales", &["Red", "Units"], "0.1");
@@ -581,7 +581,7 @@ fn if_evaluates_every_comparison_operator() {
         (">=", "2", "3", "20"),
     ];
     for (operator, units, price, expected) in cases {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = build_model(
             tmp.path(),
             &format!("['Amount'] = N: IF(['Units'] {operator} ['Price'], 10, 20);"),
@@ -653,7 +653,7 @@ fn consolidation_follows_weights_and_qualifiers() {
 
 #[test]
 fn a_rule_naming_an_element_no_dimension_holds_is_a_model_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(tmp.path(), "['Ghost'] = N: 1;");
     let error = eval_err(&model, &CellStore::new());
     assert!(matches!(&error, Error::Model(m) if m.contains("Ghost")));
@@ -678,7 +678,7 @@ fn consolidation_rejects_incorrect_coordinate_width() {
 
 #[test]
 fn a_c_rule_overrides_consolidation() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(
         tmp.path(),
         "['Amount'] = N: ['Units'] * ['Price'];\n['Price'] = C: 99;",
@@ -860,7 +860,7 @@ fn explanation_distinguishes_input_zero_from_default_zero() {
 
 #[test]
 fn shared_leaf_keeps_each_weighted_path() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(tmp.path(), &Spec::default());
     let hierarchy = root
         .join("dimensions")
@@ -914,7 +914,7 @@ fn shared_leaf_keeps_each_weighted_path() {
 #[test]
 fn safe_divide_records_its_actual_result() {
     for (divisor, expected) in [("0", "0"), ("2", "5")] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = build_model(tmp.path(), "['Amount'] = N: ['Units'] \\ ['Price'];");
         let mut store = CellStore::new();
         set(&mut store, "Sales", &["Red", "Units"], "10");
@@ -954,7 +954,7 @@ fn explanation_recalculates_rules_and_does_not_reuse_a_previous_run() {
 #[test]
 fn explanation_records_only_the_selected_if_branch() {
     for (units, branch, expected) in [("0", true, "7"), ("2", false, "5")] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = build_model(
             tmp.path(),
             "['Amount'] = N: IF(['Units'] = 0, 7, ['Price'] / ['Units']);",
@@ -977,7 +977,7 @@ fn explanation_records_only_the_selected_if_branch() {
 
 #[test]
 fn c_rule_overrides_consolidation_in_explanation() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(tmp.path(), "['Price'] = C: 99;");
     let evidence = explained(&model, &CellStore::new(), &[("Sales", &["Total", "Price"])]).unwrap();
     let total = node(&evidence, "Sales", &["Total", "Price"]);
@@ -993,7 +993,7 @@ fn explanation_preserves_calculation_errors() {
         "['Amount'] = N: ['Units'] / ['Price'];",
         "['Amount'] = N: ['Amount'];",
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = build_model(tmp.path(), rule);
         let error =
             explained(&model, &CellStore::new(), &[("Sales", &["Red", "Amount"])]).unwrap_err();
@@ -1003,7 +1003,7 @@ fn explanation_preserves_calculation_errors() {
 
 #[test]
 fn explain_cli_outputs_exact_decimal_strings_and_is_repeatable() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = tmp.path().join("data");
     std::fs::create_dir(&data).unwrap();
     std::fs::write(
@@ -1030,7 +1030,7 @@ fn explain_cli_outputs_exact_decimal_strings_and_is_repeatable() {
 
 #[test]
 fn explain_cli_accepts_a_relative_model_directory() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     write_model(
         &tmp.path().join("model"),
         &Spec::rules("['Amount'] = N: 2 * 3;"),
@@ -1075,7 +1075,7 @@ fn explain_cli_fails_without_partial_json() {
             3,
         ),
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = write_model(&tmp.path().join("model"), &Spec::rules(rules));
         let data = tmp.path().join("data");
         std::fs::create_dir(&data).unwrap();
@@ -1100,7 +1100,7 @@ fn explain_cli_fails_without_partial_json() {
 
 #[test]
 fn comparison_keeps_explanations_and_does_not_sum_overlapping_cells() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = s(&write_model(
         &tmp.path().join("model"),
         &Spec::rules("['Amount'] = N: ['Units'] * ['Price'];"),
@@ -1152,7 +1152,7 @@ fn comparison_keeps_explanations_and_does_not_sum_overlapping_cells() {
 
 #[test]
 fn removed_explicit_zero_is_an_evidence_change() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = s(&write_model(&tmp.path().join("model"), &Spec::default()));
     let previous = build_data(&tmp.path().join("before"), "sales.csv", "Red,Units,0\n");
     let current = build_data(&tmp.path().join("after"), "sales.csv", "Blue,Units,0\n");
@@ -1189,7 +1189,7 @@ fn removed_explicit_zero_is_an_evidence_change() {
 
 #[test]
 fn bad_current_snapshot_leaves_no_partial_comparison() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = s(&write_model(&tmp.path().join("model"), &Spec::default()));
     let previous = build_data(&tmp.path().join("before"), "sales.csv", "Red,Units,10\n");
     let current = build_data(&tmp.path().join("after"), "sales.csv", "Ghost,Units,3\n");
@@ -1218,7 +1218,7 @@ fn overlapping_areas_keep_the_first_rule() {
         ["['Red']", "['Amount']"],
         ["[]", "['Amount']"],
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let rules: Vec<String> = areas
             .iter()
             .enumerate()
@@ -1246,7 +1246,7 @@ fn overlapping_areas_keep_the_first_rule() {
 #[test]
 fn an_earlier_match_hides_a_later_invalid_area() {
     for first in ["['Amount']", "[]"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = model_with(
             tmp.path(),
             &format!("{first} = N: 2;\n['Ghost'] = N: 3;"),
@@ -1287,7 +1287,7 @@ fn an_earlier_miss_reaches_the_same_area_error() {
             "element 'Red' is ambiguous, held by Colour, Measure",
         ),
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = model_with(
             tmp.path(),
             &format!("['Amount'] = N: 2;\n{invalid} = N: 3;"),
@@ -1309,7 +1309,7 @@ fn an_earlier_miss_reaches_the_same_area_error() {
 #[test]
 fn leaf_and_consolidated_lookups_keep_separate_rule_order() {
     for reverse in [false, true] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = model_with(
             tmp.path(),
             "['Amount'] = N: 1;\n['Amount'] = C: 2;\n['Price'] = 3;\n[] = 4;",
@@ -1334,7 +1334,7 @@ fn leaf_and_consolidated_lookups_keep_separate_rule_order() {
 
 #[test]
 fn a_skipped_qualifier_does_not_resolve_its_invalid_area() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = model_with(
         tmp.path(),
         "['Ghost'] = C: 1;\n['Amount'] = N: 2;",
@@ -1360,7 +1360,7 @@ fn a_skipped_qualifier_does_not_resolve_its_invalid_area() {
 
 #[test]
 fn evaluation_keeps_an_expression_error_before_a_later_area_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = model_with(
         tmp.path(),
         "['Amount'] = N: 1 / 0;\n['Ghost'] = N: 2;",
@@ -1374,7 +1374,7 @@ fn evaluation_keeps_an_expression_error_before_a_later_area_error() {
 #[test]
 fn rule_keys_use_python_unicode_casefold() {
     for (declared, selector, requested) in [("Straße", "STRASSE", "strasse"), ("Σ", "ς", "σ")] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let measures = format!(r#"{MEASURES}, {{"Name": "{declared}", "Type": "Numeric"}}"#);
         let model = model_with(tmp.path(), &format!("['{selector}'] = N: 1.20;"), &measures);
         let (values, error) = batch(
@@ -1393,7 +1393,7 @@ fn rule_keys_use_python_unicode_casefold() {
 
 #[test]
 fn new_engines_observe_changed_rules() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let mut model = model_with(tmp.path(), "['Amount'] = N: 1;", MEASURES);
     assert_eq!(
         batch(&model, &CellStore::new(), &[("Sales", &["Red", "Amount"])]).0,
@@ -1409,7 +1409,7 @@ fn new_engines_observe_changed_rules() {
 
 #[test]
 fn a_late_entry_in_one_group_does_not_hide_an_earlier_other_group() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = model_with(
         tmp.path(),
         "['Price'] = N: 9;\n['Red', 'Amount'] = N: 10;\n['Amount'] = N: 20;\n['Blue', 'Price'] = N: 30;",
@@ -1479,7 +1479,7 @@ fn generated_overlaps_match_first_principles() {
                 }
             })
             .collect();
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = model_with(tmp.path(), &text.join("\n"), MEASURES);
         fn expected(rules: &[(&str, &[&str], usize)], colour: &str, measure: &str) -> Decimal {
             let leaf = colour != "Total";
@@ -1517,7 +1517,7 @@ fn generated_overlaps_match_first_principles() {
 
 #[test]
 fn reference_metadata_follows_changed_dimension_positions() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let mut model = model_with(tmp.path(), "['Amount'] = N: ['Units'] * 2;", MEASURES);
     let mut store = CellStore::new();
     set(&mut store, "Sales", &["Red", "Units"], "3.00");
@@ -1562,7 +1562,7 @@ fn same_reference_in_different_cubes_keeps_db_binding() {
 
 #[test]
 fn repeated_references_give_the_same_values_through_every_entry_point() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = model_with(
         tmp.path(),
         "['Amount'] = N: IF(['Units'] > 0, ['Units'] * 2 + ['Price'], ['Ghost']);",

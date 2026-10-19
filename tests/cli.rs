@@ -178,7 +178,7 @@ fn the_model_directory_defaults_to_the_model_folder() {
 
 #[test]
 fn a_finding_prints_as_severity_code_location_then_message() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), UNKNOWN_ELEMENT_RULES, &[]);
     let (_, out, _) = run(&["validate", &root]);
     let line = out.lines().next().unwrap();
@@ -189,7 +189,7 @@ fn a_finding_prints_as_severity_code_location_then_message() {
 
 #[test]
 fn errors_print_before_warnings_whatever_order_they_are_found_in() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(
         &tmp.path().join("model"),
         UNFED_RULES,
@@ -206,7 +206,7 @@ fn errors_print_before_warnings_whatever_order_they_are_found_in() {
 
 #[test]
 fn validate_returns_two_when_the_model_has_an_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), UNKNOWN_ELEMENT_RULES, &[]);
     let (code, out, _) = run(&["validate", &root]);
     assert_eq!(code, 2);
@@ -215,7 +215,7 @@ fn validate_returns_two_when_the_model_has_an_error() {
 
 #[test]
 fn validate_returns_zero_when_the_model_has_only_warnings() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), UNFED_RULES, &[]);
     let (code, out, _) = run(&["validate", &root]);
     assert_eq!(code, 0);
@@ -224,7 +224,7 @@ fn validate_returns_zero_when_the_model_has_only_warnings() {
 
 #[test]
 fn a_model_directory_that_is_not_there_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let (code, _, err) = run(&["validate", &s(&tmp.path().join("absent"))]);
     assert_eq!(code, 1);
     assert!(err.contains("no model directory"));
@@ -232,7 +232,7 @@ fn a_model_directory_that_is_not_there_is_a_usage_error() {
 
 #[test]
 fn a_directory_holding_no_manifest_is_an_invalid_model() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let (code, _, err) = run(&["validate", &s(tmp.path())]);
     assert_eq!(code, 2);
     assert!(err.contains("tm1project.json"));
@@ -247,7 +247,7 @@ fn malformed_hierarchy_shapes_are_invalid_models() {
         ("Edges", "12"),
         ("Type", "[]"),
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = build_model(&tmp.path().join("model"), "", &[]);
         let source = Path::new(&root)
             .join("dimensions")
@@ -273,7 +273,7 @@ fn malformed_hierarchy_shapes_are_invalid_models() {
 #[test]
 fn a_nan_weight_is_an_invalid_model_before_calculation_or_report() {
     for command in ["calculate", "report"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = build_model(&tmp.path().join("model"), "", &[]);
         let source = Path::new(&root)
             .join("dimensions")
@@ -316,7 +316,7 @@ fn a_nan_weight_is_an_invalid_model_before_calculation_or_report() {
 
 #[test]
 fn rules_outside_the_grammar_are_an_invalid_model_not_a_traceback() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build_model(tmp.path(), "['Red', 'Units'] = N: @;\n", &[]);
     let (code, _, err) = run(&["validate", &model]);
     assert_eq!(code, 2);
@@ -407,7 +407,7 @@ fn malformed_cell_references_are_usage_errors() {
 
 #[test]
 fn a_data_directory_that_is_not_there_or_holds_no_csv_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let (code, _, err) = run(&[
         "calculate",
         &model(),
@@ -427,7 +427,7 @@ fn a_data_directory_that_is_not_there_or_holds_no_csv_is_a_usage_error() {
 
 #[test]
 fn a_csv_row_naming_an_element_the_model_does_not_hold_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = tmp.path().join("data");
     std::fs::create_dir(&data).unwrap();
     std::fs::write(
@@ -442,7 +442,7 @@ fn a_csv_row_naming_an_element_the_model_does_not_hold_is_a_usage_error() {
 
 #[test]
 fn a_csv_that_is_not_utf_8_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = tmp.path().join("data");
     std::fs::create_dir(&data).unwrap();
     let mut bytes = b"Year,Version,Period,DriverMeasure,Value\n".to_vec();
@@ -455,7 +455,7 @@ fn a_csv_that_is_not_utf_8_is_a_usage_error() {
 
 #[test]
 fn a_model_file_that_is_not_utf_8_is_an_invalid_model() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), "", &[]);
     let manifest = Path::new(&root).join("tm1project.json");
     let text = std::fs::read(&manifest).unwrap();
@@ -489,7 +489,7 @@ fn locked(path: &Path) -> std::fs::File {
 #[cfg(windows)]
 #[test]
 fn an_operating_system_error_reading_a_csv_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = build_data(&tmp.path().join("data"), "drivers.csv", "");
     let csv = Path::new(&data).join("drivers.csv");
     let _guard = locked(&csv);
@@ -502,7 +502,7 @@ fn an_operating_system_error_reading_a_csv_is_a_usage_error() {
 #[cfg(windows)]
 #[test]
 fn an_operating_system_error_reading_the_model_is_an_invalid_model() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), "", &[]);
     let _guard = locked(&Path::new(&root).join("tm1project.json"));
     let (code, _, err) = run(&["validate", &root]);
@@ -514,7 +514,7 @@ fn an_operating_system_error_reading_the_model_is_an_invalid_model() {
 #[test]
 fn an_operating_system_error_reading_a_csv_is_a_usage_error() {
     use std::os::unix::fs::PermissionsExt;
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = build_data(&tmp.path().join("data"), "drivers.csv", "");
     let csv = Path::new(&data).join("drivers.csv");
     std::fs::set_permissions(&csv, std::fs::Permissions::from_mode(0o000)).unwrap();
@@ -531,7 +531,7 @@ fn an_operating_system_error_reading_a_csv_is_a_usage_error() {
 #[test]
 fn an_operating_system_error_reading_the_model_is_an_invalid_model() {
     use std::os::unix::fs::PermissionsExt;
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), "", &[]);
     let manifest = Path::new(&root).join("tm1project.json");
     std::fs::set_permissions(&manifest, std::fs::Permissions::from_mode(0o000)).unwrap();
@@ -545,7 +545,7 @@ fn an_operating_system_error_reading_the_model_is_an_invalid_model() {
 
 #[test]
 fn a_csv_that_resolves_outside_the_data_directory_is_refused() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let outside = tmp.path().join("outside.csv");
     std::fs::write(&outside, "Year,Version,Period,DriverMeasure,Value\n").unwrap();
     let data = tmp.path().join("data");
@@ -565,7 +565,7 @@ fn a_csv_that_resolves_outside_the_data_directory_is_refused() {
 
 #[test]
 fn two_data_files_feeding_one_cube_are_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = tmp.path().join("data");
     std::fs::create_dir(&data).unwrap();
     for entry in std::fs::read_dir(examples()).unwrap() {
@@ -596,7 +596,7 @@ fn two_data_files_feeding_one_cube_are_a_usage_error() {
 
 #[test]
 fn conflicting_rows_are_a_usage_error_without_calculated_output() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), "", &[]);
     let data = build_data(
         &tmp.path().join("data"),
@@ -618,7 +618,7 @@ fn conflicting_rows_are_a_usage_error_without_calculated_output() {
 
 #[test]
 fn a_csv_matching_no_cube_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let data = tmp.path().join("data");
     std::fs::create_dir(&data).unwrap();
     std::fs::write(data.join("ledger.csv"), "Year,Value\n").unwrap();
@@ -646,7 +646,7 @@ fn help_and_version_exit_zero() {
 
 #[test]
 fn calculate_refuses_a_model_that_does_not_validate() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), UNKNOWN_ELEMENT_RULES, &[]);
     let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
     let (code, out, err) = run(&[
@@ -664,7 +664,7 @@ fn calculate_refuses_a_model_that_does_not_validate() {
 
 #[test]
 fn a_division_by_zero_while_evaluating_returns_three() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), DIVIDE_BY_ZERO_RULES, &[]);
     let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
     let (code, _, err) = run(&[
@@ -681,7 +681,7 @@ fn a_division_by_zero_while_evaluating_returns_three() {
 
 #[test]
 fn a_model_fault_found_while_consolidating_returns_two() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), AMBIGUOUS_AREA_RULES, &[]);
     let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
     assert_eq!(run(&["validate", &root]).0, 0);
@@ -702,7 +702,7 @@ fn a_model_fault_found_while_consolidating_returns_two() {
 
 #[test]
 fn a_data_file_loads_into_the_cube_its_name_matches() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_model(
         &tmp.path().join("model"),
         "SKIPCHECK;\n['Amount'] = N: ['Units'] * 2;\nFEEDERS;\n['Units'] => ['Amount'];\n",
@@ -842,7 +842,7 @@ fn the_report_returns_one_for_a_year_or_version_the_model_does_not_hold() {
 
 #[test]
 fn the_report_refuses_a_cube_without_a_year_version_and_account() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_report_model(
         &tmp.path().join("model"),
         &[("Period", &["FY"]), ("Entity", &["Group"])],
@@ -866,7 +866,7 @@ fn the_report_refuses_a_cube_without_a_year_version_and_account() {
 
 #[test]
 fn the_report_refuses_a_model_that_rolls_up_to_something_else() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_report_model(
         &tmp.path().join("model"),
         &[
@@ -896,7 +896,7 @@ fn the_report_refuses_a_model_that_rolls_up_to_something_else() {
 
 #[test]
 fn the_report_refuses_a_cube_holding_a_dimension_it_has_no_element_for() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_report_model(
         &tmp.path().join("model"),
         &[
@@ -948,7 +948,7 @@ fn a_run_writes_nothing_into_the_model_or_the_data_directory() {
 
 #[test]
 fn the_report_header_names_only_the_restrictions_it_applied() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_report_model(
         &tmp.path().join("model"),
         &[
@@ -975,7 +975,7 @@ fn the_report_header_names_only_the_restrictions_it_applied() {
 
 #[test]
 fn the_report_header_names_a_partial_slice_without_inventing_the_rest() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = build_report_model(
         &tmp.path().join("model"),
         &[
@@ -1038,7 +1038,7 @@ const DEMO_LINE: &str =
 
 #[test]
 fn demo_reads_its_bundled_inputs_from_an_empty_directory_without_writes() {
-    let empty = tempfile::tempdir().unwrap();
+    let empty = tempdir();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
         .arg("demo")
         .current_dir(empty.path())
@@ -1224,7 +1224,7 @@ fn report_tree(tmp: &Path, year: &str, version: &str) -> (String, String) {
 
 #[test]
 fn the_machine_report_keeps_precision_and_only_applied_dimensions() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let (root, data) = report_tree(tmp.path(), "FY2026-27", "Budget");
     let amount = "123456789012345678901234567890.123456789";
     let csv = Path::new(&data).join("PnL.csv");
@@ -1267,7 +1267,7 @@ fn the_machine_report_keeps_precision_and_only_applied_dimensions() {
 
 #[test]
 fn a_zero_deduction_has_no_negative_zero_effect() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let (root, data) = report_tree(tmp.path(), "FY2026-27", "Budget");
     for format in ["json", "csv"] {
         let (code, out, err) = run(&[
@@ -1303,7 +1303,7 @@ fn a_zero_deduction_has_no_negative_zero_effect() {
 
 #[test]
 fn csv_quotes_coordinates_and_keeps_formula_labels_literal_without_changing_json() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     // The model file is JSON, so the quotes inside this element name are escaped there.
     let (root, data) = report_tree(tmp.path(), r#"FY,\"2027\""#, "=1+1");
     let year = r#"FY,"2027""#;
@@ -1346,7 +1346,7 @@ fn csv_formula_prefixes_get_a_leading_apostrophe() {
     for label in [
         "=1+1", " +2", "-3", "@SUM(A1)", "\tlabel", "\rlabel", "\nlabel",
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let escaped = label
             .replace('\t', "\\t")
             .replace('\r', "\\r")

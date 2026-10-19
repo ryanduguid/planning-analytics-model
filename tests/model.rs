@@ -149,7 +149,7 @@ fn model_loads_every_object_the_manifest_lists() {
 fn a_cube_loads_on_its_own_in_both_forms() {
     let cube = load_cube(&pp(&mini().join("cubes").join("Sales.json")), None).unwrap();
     assert_eq!(cube.dimensions, ["Colour", "Measure"]);
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(tmp.path(), &Spec::default());
     let cube = load_cube(&pp(&root.join("cubes").join("Sales.json")), None).unwrap();
     assert_eq!(cube.dimensions, ["Colour", "Measure"]);
@@ -157,7 +157,7 @@ fn a_cube_loads_on_its_own_in_both_forms() {
 
 #[test]
 fn dimension_references_follow_the_odata_form() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_cube(
         tmp.path(),
         "Ghost",
@@ -186,7 +186,7 @@ fn dimension_references_follow_the_odata_form() {
 #[test]
 fn a_cube_giving_its_dimensions_both_ways_is_refused() {
     for dimensions in [r#"[{"@id": "Dimensions('Colour')"}]"#, "[]", "null"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         let path = write_cube(
             &root.join("cubes"),
@@ -204,7 +204,7 @@ fn a_cube_giving_its_dimensions_both_ways_is_refused() {
 
 #[test]
 fn a_cube_naming_no_dimensions_or_not_a_list_is_refused() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     for fields in [
         "",
         r#", "Dimensions": []"#,
@@ -231,7 +231,7 @@ fn a_cube_naming_no_dimensions_or_not_a_list_is_refused() {
 
 #[test]
 fn a_reference_to_a_dimension_the_model_lacks_fails_validation() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(tmp.path(), &Spec::default());
     write_cube(
         &root.join("cubes"),
@@ -274,7 +274,7 @@ fn rules_scripts_and_files_are_recorded() {
 
 #[test]
 fn a_cube_linking_a_missing_rules_file_names_both_paths() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let cube_file = tmp.path().join("Ghost.json");
     std::fs::write(&cube_file, r#"{"Name": "Ghost", "Dimensions@Code.links": ["Colour.json"], "Rules@Code.link": "Ghost.rules"}"#).unwrap();
     std::fs::write(
@@ -288,7 +288,7 @@ fn a_cube_linking_a_missing_rules_file_names_both_paths() {
 
 #[test]
 fn manifest_refusals_name_the_file() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     write_manifest(tmp.path(), r#"{"Cubes": ["cubes/Ghost.json"]}"#);
     assert!(
         model_error(load(tmp.path()))
@@ -296,13 +296,13 @@ fn manifest_refusals_name_the_file() {
             .contains("cubes/Ghost.json")
     );
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = tmp.path().join("model");
     std::fs::write(tmp.path().join("outside.json"), r#"{"Name": "Outside"}"#).unwrap();
     write_manifest(&root, r#"{"Cubes": ["../outside.json"]}"#);
     assert!(model_error(load(&root)).contains("outside the model root"));
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     assert!(model_error(load(tmp.path())).contains("tm1project.json"));
 
     std::fs::write(tmp.path().join("tm1project.json"), "{not json").unwrap();
@@ -338,7 +338,7 @@ fn manifest_object_collections_must_be_lists() {
             r#""not-a-list""#,
             "{}",
         ] {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             write_manifest(tmp.path(), &format!(r#"{{"{kind}": {value}}}"#));
             let message = format!("Objects.{kind} must be a list");
             assert!(model_error(load(tmp.path())).contains(&message));
@@ -353,7 +353,7 @@ fn manifest_object_collections_must_be_lists() {
 #[test]
 fn manifest_link_mappings_and_members_must_be_lists_of_strings() {
     for kind in KINDS {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(
             tmp.path(),
             &Spec {
@@ -378,7 +378,7 @@ fn manifest_link_mappings_and_members_must_be_lists_of_strings() {
         assert!(code == 2 && out.is_empty() && err.contains(&message));
 
         for member in ["null", "true", "1", "{}", "[]"] {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             write_manifest(tmp.path(), &format!(r#"{{"{kind}": [{member}]}}"#));
             assert!(model_error(load(tmp.path())).contains("link must be a string"));
             let (code, out, err) = validate_cli(tmp.path());
@@ -395,7 +395,7 @@ fn absent_and_empty_manifest_collections_remain_valid() {
         r#"{"Views": null}"#,
         r#"{"Views": 1}"#,
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         write_manifest(tmp.path(), objects);
         let model = load(tmp.path()).unwrap();
         assert!(
@@ -416,7 +416,7 @@ fn nested_link_values_use_the_same_model_error() {
         ("processes/Load.json", "Code@Code.link", "true"),
     ];
     for (relative, key, value) in cases {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(
             tmp.path(),
             &Spec {
@@ -456,7 +456,7 @@ fn hierarchy_link_collection_must_be_a_list() {
         "{}",
         r#"{"Colour.hierarchies/Colour.json": false}"#,
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         let path = root.join("dimensions").join("Colour.json");
         edit_json(&path, |p| set_key(p, "Hierarchies@Code.links", j(value)));
@@ -484,7 +484,7 @@ fn falsey_optional_link_values_must_be_strings() {
         ("processes/Load.json", "Code@Code.link"),
     ] {
         for value in ["false", "0", "0.0", "[]", "{}"] {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             let process = relative.starts_with("processes");
             let root = write_model(
                 tmp.path(),
@@ -523,7 +523,7 @@ fn falsey_optional_link_values_must_be_strings() {
 #[test]
 fn optional_links_preserve_no_source_states() {
     for state in ["omitted", "null", "empty"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(
             tmp.path(),
             &Spec {
@@ -559,7 +559,7 @@ fn optional_links_preserve_no_source_states() {
 #[test]
 fn hierarchy_links_preserve_no_hierarchy_error() {
     for state in ["omitted", "null", "empty"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         let path = root.join("dimensions/Colour.json");
         edit_json(&path, |p| match state {
@@ -592,7 +592,7 @@ fn invalid_nested_link_shape_exits_the_cli_process() {
             "link must be a string",
         ),
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         let path = root.join(relative);
         edit_json(&path, |p| set_key(p, key, j(value)));
@@ -651,7 +651,7 @@ fn duplicate_object_names_are_rejected_before_they_are_lost() {
     for kind in KINDS {
         for same_path in [false, true] {
             for reverse in [false, true] {
-                let tmp = tempfile::tempdir().unwrap();
+                let tmp = tempdir();
                 let root = write_model(
                     tmp.path(),
                     &Spec {
@@ -678,13 +678,13 @@ fn duplicate_object_names_are_rejected_before_they_are_lost() {
 #[test]
 fn cube_names_must_be_distinct_under_case_folding() {
     for reverse in [false, true] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         add_alias(&root, "Cubes", false, Some("sales"), reverse);
         let message = model_error(load(&root));
         assert!(message.contains("Sales") && message.contains("sales"));
     }
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(tmp.path(), &Spec::default());
     edit_json(&root.join("cubes/Sales.json"), |p| {
         set_key(p, "Name", Json::Str("Straße".into()))
@@ -697,7 +697,7 @@ fn cube_names_must_be_distinct_under_case_folding() {
 #[test]
 fn model_names_must_be_text_at_the_loading_boundary() {
     for name in ["1", "true", r#"["Sales"]"#, r#"{"name": "Sales"}"#] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         let path = root.join("cubes/Sales.json");
         edit_json(&path, |p| set_key(p, "Name", j(name)));
@@ -725,7 +725,7 @@ fn model_names_must_be_text_at_the_loading_boundary() {
     ];
     for (relative, keys) in fields {
         for name in ["42", "true", r#"["bad-name"]"#, r#"{"name": "bad-name"}"#] {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             let root = write_model(
                 tmp.path(),
                 &Spec {
@@ -758,7 +758,7 @@ fn model_names_must_be_text_at_the_loading_boundary() {
 #[test]
 fn a_standalone_cube_reads_linked_dimension_names() {
     for name in ["42", "true", r#"["bad-name"]"#, r#"{"name": "bad-name"}"#] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         edit_json(&root.join("dimensions/Colour.json"), |p| {
             set_key(p, "Name", j(name))
@@ -767,7 +767,7 @@ fn a_standalone_cube_reads_linked_dimension_names() {
         assert!(message.contains("Name must be a string"));
     }
     for name in ["null", r#""""#, "0", "false", "[]", "{}"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         edit_json(&root.join("dimensions/Colour.json"), |p| {
             set_key(p, "Name", j(name))
@@ -776,7 +776,7 @@ fn a_standalone_cube_reads_linked_dimension_names() {
         assert_eq!(cube.dimensions, ["Colour", "Measure"]);
     }
     for name in ["Straße", " Colour "] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         edit_json(&root.join("dimensions/Colour.json"), |p| {
             set_key(p, "Name", Json::Str(name.into()))
@@ -799,7 +799,7 @@ fn cli_reports_non_text_names_as_invalid_models() {
     ];
     for command in ["validate", "calculate"] {
         for (relative, keys, name) in cases {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             let root = write_model(
                 &tmp.path().join("model"),
                 &Spec {
@@ -843,7 +843,7 @@ fn cli_reports_non_text_names_as_invalid_models() {
 
 #[test]
 fn object_names_in_different_kinds_keep_separate_namespaces() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(
         tmp.path(),
         &Spec {
@@ -862,7 +862,7 @@ fn object_names_in_different_kinds_keep_separate_namespaces() {
     assert_eq!(model.processes[0].name, "Colour");
 
     for (kind, name) in [("Dimensions", "colour"), ("Processes", "load")] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(
             tmp.path(),
             &Spec {
@@ -886,7 +886,7 @@ fn cli_rejects_ambiguous_cube_names_without_printing_a_result() {
     for name in ["Sales", "sales"] {
         for command in ["validate", "calculate"] {
             for reverse in [false, true] {
-                let tmp = tempfile::tempdir().unwrap();
+                let tmp = tempdir();
                 let root = write_model(
                     &tmp.path().join("model"),
                     &Spec::rules(
@@ -997,7 +997,7 @@ fn loads_elements_edges_and_weights() {
 fn hierarchy_entries_and_collections_are_checked() {
     for collection in ["Elements", "Edges"] {
         for invalid in ["null", "12", r#""name""#, "[]"] {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             let (elements, edges) = if collection == "Elements" {
                 (invalid, "")
             } else {
@@ -1008,7 +1008,7 @@ fn hierarchy_entries_and_collections_are_checked() {
             assert!(message.contains("expected an object") && message.contains("Test.hierarchies"));
         }
         for invalid in ["null", "12", r#""entries""#, "{}", "true"] {
-            let tmp = tempfile::tempdir().unwrap();
+            let tmp = tempdir();
             let path = write_dimension(tmp.path(), "Test", "", "");
             let source = tmp.path().join("Test.hierarchies").join("Test.json");
             edit_json(&source, |p| set_key(p, collection, j(invalid)));
@@ -1020,7 +1020,7 @@ fn hierarchy_entries_and_collections_are_checked() {
         }
     }
     for omitted in [false, true] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let path = write_dimension(tmp.path(), "Test", "", "");
         if omitted {
             std::fs::write(
@@ -1034,7 +1034,7 @@ fn hierarchy_entries_and_collections_are_checked() {
         assert!(hierarchy.elements.is_empty() && hierarchy.edges.is_empty());
     }
     for invalid in ["[]", "{}", "null", "12", "true"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let path = write_dimension(tmp.path(), "Test", r#"{"Name": "Leaf"}"#, "");
         let source = tmp.path().join("Test.hierarchies").join("Test.json");
         edit_json(&source, |p| {
@@ -1048,7 +1048,7 @@ fn hierarchy_entries_and_collections_are_checked() {
 }
 
 fn share(weight: &str) -> Result<pacioliscube::model::Dimension, Error> {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_dimension(
         tmp.path(),
         "Share",
@@ -1098,7 +1098,7 @@ fn weights_keep_precision_and_refuse_non_finite_values() {
 
 #[test]
 fn shared_subtrees_report_leaves_once_in_edge_order() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_dimension(
         tmp.path(),
         "Shared",
@@ -1143,7 +1143,7 @@ fn shared_subtrees_report_leaves_once_in_edge_order() {
     edges.push(edge(&layers[11][0], "Second"));
     edges.push(edge(&layers[11][1], "Second"));
     edges.push(edge(&layers[11][1], "First"));
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_dimension(tmp.path(), "Shared", &elements.join(","), &edges.join(","));
     let dimension = load_dimension(&pp(&path), None).unwrap();
     assert_eq!(
@@ -1158,7 +1158,7 @@ fn shared_subtrees_report_leaves_once_in_edge_order() {
 
 #[test]
 fn broken_hierarchies_are_model_errors() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_dimension(
         tmp.path(),
         "Broken",
@@ -1168,7 +1168,7 @@ fn broken_hierarchies_are_model_errors() {
     let message = model_error(load_dimension(&pp(&path), None)).replace('\\', "/");
     assert!(message.contains("Ghost") && message.contains("Broken.json"));
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let path = write_dimension(
         tmp.path(),
         "Loop",
@@ -1181,7 +1181,7 @@ fn broken_hierarchies_are_model_errors() {
         "{message}"
     );
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let file = tmp.path().join("Absent.json");
     std::fs::write(
         &file,
@@ -1307,7 +1307,7 @@ fn a_malformed_model_tree_is_refused_with_its_reason() {
         ),
     ];
     for (change, message) in cases {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let root = write_model(tmp.path(), &Spec::default());
         change(&root);
         let found = model_error(load(&root));
@@ -1317,7 +1317,7 @@ fn a_malformed_model_tree_is_refused_with_its_reason() {
 
 #[test]
 fn a_malformed_process_is_refused() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(
         tmp.path(),
         &Spec {
@@ -1327,7 +1327,7 @@ fn a_malformed_process_is_refused() {
     );
     edit_json(&root.join("processes/Load.json"), |p| remove_key(p, "Name"));
     assert!(model_error(load(&root)).contains("process has no Name"));
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(
         tmp.path(),
         &Spec {
@@ -1346,7 +1346,7 @@ fn a_malformed_process_is_refused() {
 
 #[test]
 fn default_hierarchies_fall_back_or_refuse() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(tmp.path(), &Spec::default());
     edit_json(&colour_hierarchy(&root), |h| {
         set_key(h, "Name", Json::Str("Alternate".into()))
@@ -1354,7 +1354,7 @@ fn default_hierarchies_fall_back_or_refuse() {
     let dimension = load_dimension(&pp(&root.join("dimensions/Colour.json")), None).unwrap();
     assert_eq!(dimension.default_hierarchy().unwrap().name, "Alternate");
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let root = write_model(tmp.path(), &Spec::default());
     let dir = root.join("dimensions").join("Colour.hierarchies");
     edit_json(&dir.join("Colour.json"), |h| {
@@ -1379,11 +1379,7 @@ fn default_hierarchies_fall_back_or_refuse() {
             .contains("no hierarchy named 'Colour' to use as the default")
     );
 
-    let model = load(&write_model(
-        tempfile::tempdir().unwrap().path(),
-        &Spec::default(),
-    ))
-    .unwrap();
+    let model = load(&write_model(tempdir().path(), &Spec::default())).unwrap();
     assert!(
         model
             .hierarchy("Region")
@@ -1395,7 +1391,7 @@ fn default_hierarchies_fall_back_or_refuse() {
 
 #[test]
 fn data_loader_refusals() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = load(&write_model(&tmp.path().join("model"), &Spec::default())).unwrap();
     let cube = model.cube("Sales").unwrap();
     assert!(

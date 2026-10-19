@@ -62,7 +62,7 @@ fn ghost_dimension(root: &Path) {
 
 #[test]
 fn a_clean_model_reports_nothing() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &rules(
@@ -74,7 +74,7 @@ fn a_clean_model_reports_nothing() {
 
 #[test]
 fn cube_validation_phases_preserve_exact_finding_order() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     ghost_dimension(tmp.path());
     let model = build(
         tmp.path(),
@@ -126,7 +126,7 @@ fn cube_validation_phases_preserve_exact_finding_order() {
 
 #[test]
 fn dim001_a_cube_naming_an_absent_dimension() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     ghost_dimension(tmp.path());
     let model = build(
         tmp.path(),
@@ -171,13 +171,13 @@ fn element_and_area_checks() {
             "ELE001",
         ),
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         assert!(
             codes(&build(tmp.path(), &rules(text))).contains(&code),
             "{text}"
         );
     }
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &rules("SKIPCHECK;\n['Total'] = C: 1;\nFEEDERS;\n['Units'] => ['Total'];\n"),
@@ -191,7 +191,7 @@ fn fed003_feeders_in_a_rules_file_without_skipcheck() {
         "['Amount'] = N: ['Units'] * ['Price'];\nFEEDERS;\n['Units'] => ['Amount'];\n",
         "FEEDERS;\n['Units'] => ['Amount'];\n",
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let findings = validate_model(&build(tmp.path(), &rules(text))).unwrap();
         let finding = findings.iter().find(|f| f.code == "FED003").unwrap();
         assert_eq!(finding.severity, "error");
@@ -200,7 +200,7 @@ fn fed003_feeders_in_a_rules_file_without_skipcheck() {
 
 #[test]
 fn fed002_a_calculated_area_no_feeder_points_at() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let findings = validate_model(&build(tmp.path(), &rules("SKIPCHECK;\n['Amount'] = N: 1;\n['Price'] = N: 2;\nFEEDERS;\n['Units'] => ['Amount'];\n"))).unwrap();
     let finding = findings.iter().find(|f| f.code == "FED002").unwrap();
     assert_eq!(finding.severity, "warning");
@@ -208,7 +208,7 @@ fn fed002_a_calculated_area_no_feeder_points_at() {
 
 #[test]
 fn cross_cube_feeders_cover_their_target_areas() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &with_feeder_cube(
@@ -222,7 +222,7 @@ fn cross_cube_feeders_cover_their_target_areas() {
         ("['Red','Units']", true),
         ("['Total','Units']", true),
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let model = build(
             tmp.path(),
             &with_feeder_cube(
@@ -236,13 +236,13 @@ fn cross_cube_feeders_cover_their_target_areas() {
 
 #[test]
 fn feeder_areas_are_compared_whole() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &rules("SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Blue','Amount'];\n"),
     );
     assert!(codes(&model).contains(&"FED002"));
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &rules("SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n['Units'] => ['Red','Amount'];\n"),
@@ -252,7 +252,7 @@ fn feeder_areas_are_compared_whole() {
 
 #[test]
 fn db_feeder_coordinates_pair_with_their_own_dimension() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &rules("SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', 'Units', 'Red');\n"),
@@ -270,13 +270,13 @@ fn db_feeder_coordinates_pair_with_their_own_dimension() {
             "dimension 'Measure' of cube 'Sales' holds no element named 'Red'",
         ]
     );
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &rules("SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', 'Red', 'Amount');\n"),
     );
     assert!(!codes(&model).contains(&"ELE001"));
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &Spec {
@@ -292,7 +292,7 @@ fn db_feeder_coordinates_pair_with_their_own_dimension() {
 
 #[test]
 fn man001_a_file_the_manifest_does_not_list() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &Spec {
@@ -315,7 +315,7 @@ fn man001_a_file_the_manifest_does_not_list() {
 #[test]
 fn process_parameters_are_checked_against_live_code() {
     let check = |script: &str, parameters: &str| {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         codes(&build(
             tmp.path(),
             &Spec {
@@ -358,7 +358,7 @@ fn the_shipped_model_validates_clean() {
 
 #[test]
 fn ambiguity_and_missing_dimensions_in_db_arguments_are_reported() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = build(
         tmp.path(),
         &Spec {
@@ -377,7 +377,7 @@ fn ambiguity_and_missing_dimensions_in_db_arguments_are_reported() {
         "['Amount'] = DB('Sales', !Region, 'Units');\n",
         "SKIPCHECK;\nFEEDERS;\n['Units'] => DB('Sales', !Region, 'Amount');\n",
     ] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempdir();
         let findings = validate_model(&build(tmp.path(), &rules(text))).unwrap();
         assert!(findings.iter().any(|f| f.code == "ELE001"
             && f.message == "!Region names a dimension that cube 'Sales' does not have"));
@@ -392,7 +392,7 @@ fn engine_model(root: &Path, rules_text: &str) -> Model {
 
 #[test]
 fn an_unknown_cube_is_a_model_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = engine_model(tmp.path(), "");
     let cells = [("Budget".to_string(), coord(&["Red", "Units"]))];
     let error = consolidate_many(&model, &CellStore::new(), &cells, |_, _| {}).unwrap_err();
@@ -404,7 +404,7 @@ fn an_unknown_cube_is_a_model_error() {
 
 #[test]
 fn consolidation_of_an_all_leaf_coordinate_reads_the_store() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = engine_model(tmp.path(), "");
     let mut store = CellStore::new();
     store.set("Sales", &coord(&["Red", "Units"]), d("4"));
@@ -421,7 +421,7 @@ fn consolidation_of_an_all_leaf_coordinate_reads_the_store() {
 
 #[test]
 fn arithmetic_overflow_is_a_calculation_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = engine_model(tmp.path(), "['Amount'] = ['Units'] * ['Price'];\n");
     let mut store = CellStore::new();
     store.set("Sales", &coord(&["Red", "Units"]), d("9E+999999"));
@@ -438,7 +438,7 @@ fn arithmetic_overflow_is_a_calculation_error() {
         Error::evaluation("cube 'Sales' at ['Red', 'Amount']: arithmetic failed (Overflow)")
     );
 
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let model = engine_model(tmp.path(), "");
     let mut store = CellStore::new();
     store.set("Sales", &coord(&["Red", "Units"]), d("9E+999999"));
@@ -455,7 +455,7 @@ fn arithmetic_overflow_is_a_calculation_error() {
 
 #[test]
 fn a_rule_area_too_large_to_materialise_is_refused() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     let names = |prefix: &str| -> String {
         (0..1500)
             .map(|i| format!(r#"{{"Name": "{prefix}{i}", "Type": "Numeric"}}"#))
@@ -539,7 +539,7 @@ fn rule_syntax_errors() {
 
 #[test]
 fn a_cell_reference_with_an_empty_element_is_a_usage_error() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempdir();
     write_model(&tmp.path().join("model"), &Spec::default());
     let data = build_data(&tmp.path().join("data"), "sales.csv", "");
     let (code, _, err) = run(&[

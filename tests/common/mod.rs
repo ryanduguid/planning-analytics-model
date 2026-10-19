@@ -29,6 +29,19 @@ pub fn s(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// A temporary directory under the resolved system temp directory, as
+/// pytest's `tmp_path` is. Windows runners spell TEMP with an 8.3 short name
+/// (`RUNNER~1`), while the commands report the resolved model path.
+pub fn tempdir() -> tempfile::TempDir {
+    let temp = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+    let text = s(&temp);
+    let base = match text.strip_prefix(r"\\?\") {
+        Some(rest) if !rest.starts_with("UNC\\") => PathBuf::from(rest),
+        _ => temp,
+    };
+    tempfile::tempdir_in(base).unwrap()
+}
+
 /// Red and Blue roll up to Total, which is what a test needs to tell a leaf
 /// cell from a consolidated one.
 pub const COLOUR_ELEMENTS: &str = r#"{"Name": "Total", "Type": "Consolidated"}, {"Name": "Red", "Type": "Numeric"}, {"Name": "Blue", "Type": "Numeric"}"#;
