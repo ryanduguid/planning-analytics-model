@@ -715,11 +715,11 @@ fn the_model_has_enough_calculated_leaves_for_these_checks_to_mean_something() {
     }
     let limit = d(TOLERANCE);
     for version in [BUDGET, ACTUAL] {
-        for account in &accounts {
-            let total = leaf_sum(version, &MONTHS, &ENTITIES, &COST_CENTRES, &[account]);
+        for line_item in &accounts {
+            let total = leaf_sum(version, &MONTHS, &ENTITIES, &COST_CENTRES, &[line_item]);
             assert!(
                 total > limit || total < limit.neg().unwrap(),
-                "{version:?} {account}"
+                "{version:?} {line_item}"
             );
         }
         assert!(
