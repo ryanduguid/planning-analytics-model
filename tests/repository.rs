@@ -63,7 +63,6 @@ fn unexpected_parser_errors_and_changing_answers_fail_the_check() {
 
 // ---------------------------------------------------------------- release
 
-const POLICY: &str = "0f7ca4ce0ba2e7ea52fc611149a42cd5d0a26f6c";
 const REQUIRED: [&str; 9] = [
     ".github/workflows/no-ai-attribution.yml: Attribution policy / Attribution policy runner",
     ".github/workflows/ci.yml: dependency-audit",
@@ -88,12 +87,18 @@ fn every_release_caller_requires_its_component_checks() {
     assert_eq!(callers, ["release.yml"]);
     let text = read(".github/workflows/release.yml");
     let job = text.split("\n  release:\n").nth(1).unwrap();
-    let uses = format!(
-        "    uses: ryanduguid/release-policy/.github/workflows/release-archive.yml@{POLICY}\n"
-    );
+    // The pin is the caller's to set; a re-pin edits release.yml and nothing here.
+    let pin = job
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix(
+                "    uses: ryanduguid/release-policy/.github/workflows/release-archive.yml@",
+            )
+        })
+        .expect("the release must call the source-archive workflow");
     assert!(
-        job.contains(&uses),
-        "the release must call the pinned source-archive workflow"
+        pin.len() == 40 && pin.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')),
+        "the source-archive workflow must be pinned by full commit, not {pin:?}"
     );
     let permissions = job
         .split("    permissions:\n")
