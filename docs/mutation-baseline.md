@@ -1,5 +1,10 @@
 # Calculation-engine mutation baseline
 
+This is a historical record of the Python engine, which the Rust command line
+replaced in version 1.0.0. The files it names no longer exist on `main`; the
+Rust tests that replaced the suite it measured are listed in
+[CHANGELOG.md](../CHANGELOG.md).
+
 This document records the bounded `mutmut` 3.7.0 pilot for
 `pacioliscube/evaluate.py`. It is a measurement and test-design aid, not a CI
 gate. Run it on Linux, because mutmut relies on process forking:

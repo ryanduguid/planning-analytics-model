@@ -32,7 +32,7 @@ No rule file holds a statutory literal. Every rate and threshold is read from th
 `Drivers` cube with `DB()`, and the values arrive from `examples/drivers.csv`
 through `model/processes/LoadDrivers.ti`.
 
-`tests/test_model_rules.py` fails the build if a number written in the text of
+The rules discipline tests in `tests/model.rs` fail the build if a number written in the text of
 any ruled cube or any TurboIntegrator script carries a value the driver file
 ships. It takes both lists from the model itself rather than from lists kept by
 hand, so a cube or a driver added later is guarded from the day it ships. It
@@ -110,7 +110,7 @@ on 23 August 2026 and confirmed.
 This row previously shipped 260280, which is 4 times $65,070, and $65,070 a
 quarter was the FY2024-25 base. It was a figure carried forward one year too
 far, it reconciled to nothing, and it is recorded here because the model's own
-tests did not catch it: they pinned the budget year only. `test_calculations.py`
+tests did not catch it: they pinned the budget year only. `tests/calculations.rs`
 now covers the cap in both years, so the same class of error fails the build.
 
 ## Planning drivers

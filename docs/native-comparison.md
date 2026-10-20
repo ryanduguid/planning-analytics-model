@@ -65,8 +65,9 @@ server for this repository.
    in tm1gitpy's `tm1servers.yaml`:
 
    ```bash
-   uv run --locked --group tm1git tm1gitpy compare --source empty --target model --output changeset.yaml --max-workers 8
-   uv run --locked --group tm1git tm1gitpy apply --server isolated --changeset changeset.yaml
+   python -m venv .tm1git && .tm1git/bin/pip install --no-deps --require-hashes -r ci/requirements-tm1git.txt
+   .tm1git/bin/tm1gitpy compare --source empty --target model --output changeset.yaml --max-workers 8
+   .tm1git/bin/tm1gitpy apply --server isolated --changeset changeset.yaml
    ```
 
    tm1gitpy 1.2.10's `compare` fails without `--max-workers`, and with
@@ -91,13 +92,13 @@ pacioliscube calculate model --data examples --cell "Workforce:FY2026-27,Budget,
 pacioliscube calculate model --data examples --cell "PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount"
 ```
 
-The existing `tests/test_calculations.py` works out these expectations without
+The existing `tests/calculations.rs` works out these expectations without
 copying engine output. Run the repository's normal checks:
 
 ```bash
-uv run --locked --extra dev ruff check pacioliscube tests
-uv run --locked --extra dev mypy pacioliscube
-uv run --locked --extra dev pytest -q
+cargo fmt --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
 ```
 
 ## Complete the native record

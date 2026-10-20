@@ -35,23 +35,31 @@ Run that test against the old code first. If it passes there too, it is not
 testing your change.
 
 ```bash
-uv run --locked --extra dev ruff check pacioliscube tests
-uv run --locked --extra dev mypy pacioliscube
-uv run --locked --extra dev pytest -q
+cargo fmt --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
 ```
 
-The same commands CI runs: ruff and mypy in the `lint` job, then the tests on
-Python 3.14 and 3.15 (and 3.14 on Windows). Install the git hooks once
-with `uv tool install pre-commit && pre-commit install`; they run the pinned
-ruff check on staged files. The packaging job additionally builds the wheel,
-installs it into a clean environment and runs the real command line against the
-real model tree, because a wheel that cannot find its own model is a broken
-build artefact.
+The same commands CI runs: formatting and clippy in the `lint` job, then the
+tests on Ubuntu and Windows, with line coverage measured on Ubuntu by
+cargo-llvm-cov and a 90% floor. Install the git hooks once with
+`pre-commit install` and `pre-commit install --hook-type commit-msg`; they run
+the same commands. The packaging job additionally installs the release binary
+and runs the real command line against the real model tree, because a binary
+that cannot read its own model is a broken build artefact.
 
-The bounded mutmut pilot over `pacioliscube/evaluate.py`, with its survivor
-ledger and the decision to keep the pin, is recorded in
-[docs/mutation-baseline.md](docs/mutation-baseline.md). It is a test-design
-aid, not a CI gate.
+Where the engine reproduces Python's behaviour (decimal arithmetic, the JSON
+reader, string case rules, paths, CSV reading and argument parsing), the
+expected results come from `tests/data/python_golden.json`, recorded from the
+last Python release; see [CHANGELOG.md](CHANGELOG.md). The mutation pilot in
+[docs/mutation-baseline.md](docs/mutation-baseline.md) records the Python
+engine and is kept as history.
+
+`src/pyunicode.rs` records CPython 3.15.0's Unicode 17.0.0 character predicates
+and case mappings. Its generator, `tools/gen_pyunicode.py`, requires that exact
+interpreter. Generate into a temporary file, format it with the pinned rustfmt
+and compare it with the committed table before replacing the table. Python is
+needed only to regenerate it; the Rust build and binary use the saved data.
 
 ## Model changes
 
@@ -63,8 +71,8 @@ beside the JSON. Each `.ti` file holds `#region Prolog`, `#region Metadata`,
 `#region Data` and `#region Epilog` blocks in that order, each closed by
 `#endregion`, and each process JSON sets `HasSecurityAccess` (`false` unless
 the process changes security data).
-`tests/test_tm1_source_form.py` holds the model to that form, and the
-`tm1git-conformance` CI job has tm1gitpy read it as well.
+`tests/model.rs` holds the model to that form, and the `tm1git-conformance`
+CI job has tm1gitpy read it as well (`ci/tm1gitpy_model.py`).
 
 Two rules hold for any change there:
 

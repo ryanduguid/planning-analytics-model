@@ -2,24 +2,24 @@
 
 > PaciolisCube: a driver-based IBM Planning Analytics (TM1) budget for a fictional
 > Australian mining services group, published in the TM1 Git source format, with a
-> Python engine that parses and evaluates its rules without a TM1 server. Continuous
+> Rust engine that parses and evaluates its rules without a TM1 server. Continuous
 > integration recomputes the model on every push and fails if a figure moves.
 
-The engine is on PyPI as `pacioliscube` and its runtime uses only the Python standard
-library. Entities, commercial rates and volumes are fictional. This repository was
+The engine is the `pacioliscube` command line, built from source with Cargo; 0.3.0 on
+PyPI was the last Python release. Entities, commercial rates and volumes are fictional. This repository was
 named PaciolisCube until September 2026; the old URL redirects.
 
 ## Start
 
 - [README](https://github.com/ryanduguid/planning-analytics-model#readme): what is in the repository, install and use.
-- Install: `python -m pip install pacioliscube`, or clone the repository for the model files and tests.
+- Install: clone the repository, then `cargo install --locked --path .`.
 - Check the model's structure: `pacioliscube validate model`.
 - Print a profit and loss from the shipped data: `pacioliscube report model --data examples --year FY2026-27 --version Budget`.
 
 ## Contents
 
 - [model/](https://github.com/ryanduguid/planning-analytics-model/tree/main/model): the `tm1project.json` manifest, 13 dimensions, 5 cubes, 4 rule files and 8 TurboIntegrator processes.
-- [pacioliscube/](https://github.com/ryanduguid/planning-analytics-model/tree/main/pacioliscube): rule parser, structural validator, cell store with weighted consolidation, CSV loader and command line.
+- [src/](https://github.com/ryanduguid/planning-analytics-model/tree/main/src): rule parser, structural validator, cell store with weighted consolidation, CSV loader and command line.
 - [examples/](https://github.com/ryanduguid/planning-analytics-model/tree/main/examples): fictional entities, rates and volumes, plus dated statutory rates and thresholds.
 - [Model assumptions](https://github.com/ryanduguid/planning-analytics-model/blob/main/docs/model-assumptions.md): the source of every statutory figure and how it was confirmed.
 

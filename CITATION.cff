@@ -16,6 +16,6 @@ keywords:
   - ibm-planning-analytics
   - model-as-code
   - planning-analytics
-  - python
+  - rust
   - tm1
   - tm1py

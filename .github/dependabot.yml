@@ -1,16 +1,31 @@
 version: 2
 updates:
-  - package-ecosystem: "uv"
-    directory: "/"
+  - package-ecosystem: "cargo"
+    directories:
+      - "/"
+      - "/fuzz"
     schedule:
       interval: "weekly"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
-    # One weekly PR for the whole lock: each separate bump otherwise needs its
-    # own update-branch round under strict branch protection.
+    # One weekly PR for both locks: each separate bump otherwise needs its own
+    # update-branch round under strict branch protection.
     groups:
-      python:
+      rust-dependencies:
+        patterns:
+          - "*"
+
+  # tm1gitpy and its dependencies for the conformance job.
+  - package-ecosystem: "pip"
+    directory: "/ci"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      tm1git:
         patterns:
           - "*"
 

@@ -5,8 +5,8 @@ using one model. It prints previous, current and difference amounts, both comple
 calculation explanations and changed evidence nodes. An absent input remains
 `default_zero`, so removing an explicit zero is visible even when the value is unchanged.
 
-```powershell
-uv run --locked pacioliscube compare model --previous-data examples --current-data examples --cell 'PnL:FY2026-27,Budget,FY,Group,All Cost Centres,EBITDA,Amount'
+```bash
+pacioliscube compare model --previous-data examples --current-data examples --cell 'PnL:FY2026-27,Budget,FY,Group,All Cost Centres,EBITDA,Amount'
 ```
 
 This reproducible baseline produces a zero difference. Copy the example CSVs to
