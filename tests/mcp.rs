@@ -5,6 +5,7 @@ mod common;
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::time::{Duration, Instant};
 
 use common::*;
 use serde_json::{Value, json};
@@ -112,6 +113,15 @@ impl Client {
 
 impl Drop for Client {
     fn drop(&mut self) {
+        // EOF allows the server to flush its profiling data before exit.
+        drop(self.stdin.take());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if matches!(self.child.try_wait(), Ok(Some(_))) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
@@ -287,6 +297,284 @@ fn explain_rules_lists_the_feeders_that_reach_a_rule() {
 }
 
 #[test]
+fn explain_rules_preserves_source_constraints_in_cross_cube_feeders() {
+    for (source, target, expected) in [
+        ("Red", "!Colour", true),
+        ("Blue", "!Colour", false),
+        ("Total", "!Colour", true),
+        ("Blue", "'Total'", true),
+    ] {
+        let tmp = tempdir();
+        let spec = Spec {
+            rules: "SKIPCHECK;\n['Red','Amount'] = N: 1;\n".into(),
+            manifest_cubes: "\"cubes/Sales.json\", \"cubes/Feeder.json\"".into(),
+            extra_files: vec![
+                (
+                    "cubes/Feeder.json".into(),
+                    format!(
+                        r#"{{"Name":"Feeder","Dimensions@Code.links":[{CUBE_DIMENSIONS}],"Rules@Code.link":"Feeder.rules"}}"#
+                    ),
+                ),
+                (
+                    "cubes/Feeder.rules".into(),
+                    format!(
+                        "SKIPCHECK;\nFEEDERS;\n['{source}','Units'] => DB('Sales', {target}, 'Amount');\n"
+                    ),
+                ),
+            ],
+            ..Spec::default()
+        };
+        let root = s(&write_model(&tmp.path().join("model"), &spec));
+        let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+        let mut client = Client::start(&root, &data);
+        let explained = client.ok_json("explain_rules", json!({"cube": "Sales", "line": 2}));
+        let feeders = explained["rules"][0]["fed_by"].as_array().unwrap();
+        assert_eq!(
+            !feeders.is_empty(),
+            expected,
+            "source={source}, target={target}: {explained}"
+        );
+    }
+}
+
+#[test]
+fn explain_rules_preserves_inherited_local_feeder_coordinates() {
+    for (area, target, expected) in [
+        ("'Red','Units'", "'Amount'", true),
+        ("'Blue','Units'", "'Amount'", false),
+        ("'Total','Units'", "'Amount'", true),
+        ("'Blue','Units'", "'Red','Amount'", true),
+        ("'Blue','Units'", "'Total','Amount'", true),
+        ("'Units'", "'Amount'", true),
+    ] {
+        let tmp = tempdir();
+        let spec = Spec::rules(&format!(
+            "SKIPCHECK;\n['Red','Amount'] = N: 1;\nFEEDERS;\n[{area}] => [{target}];\n"
+        ));
+        let root = s(&write_model(&tmp.path().join("model"), &spec));
+        let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+        let mut client = Client::start(&root, &data);
+        let explained = client.ok_json("explain_rules", json!({"cube": "Sales", "line": 2}));
+        let feeders = explained["rules"][0]["fed_by"].as_array().unwrap();
+        assert_eq!(
+            !feeders.is_empty(),
+            expected,
+            "area={area}, target={target}: {explained}"
+        );
+    }
+}
+
+#[test]
+fn explain_rules_resolves_carried_elements_in_the_target_hierarchy() {
+    for (elements, edges, target) in [
+        (
+            r#"{"Name":"RED","Type":"Numeric"},{"Name":"BLUE","Type":"Numeric"}"#,
+            "",
+            "RED",
+        ),
+        (
+            r#"{"Name":"Red","Type":"Consolidated"},{"Name":"Red1","Type":"Numeric"},{"Name":"Red2","Type":"Numeric"},{"Name":"Blue","Type":"Numeric"}"#,
+            r#"{"ParentName":"Red","ComponentName":"Red1","Weight":1},{"ParentName":"Red","ComponentName":"Red2","Weight":1}"#,
+            "Red1",
+        ),
+    ] {
+        let tmp = tempdir();
+        let spec = Spec {
+            rules: format!("SKIPCHECK;\n['{target}','Amount'] = N: 1;\n"),
+            manifest_cubes: "\"cubes/Sales.json\", \"cubes/Feeder.json\"".into(),
+            extra_files: vec![
+                (
+                    "dimensions/Colour.hierarchies/Colour.json".into(),
+                    format!(r#"{{"Name":"Colour","Elements":[{elements}],"Edges":[{edges}]}}"#),
+                ),
+                (
+                    "dimensions/Shade.json".into(),
+                    r#"{"Name":"Shade","Hierarchies@Code.links":["Shade.hierarchies/Shade.json"]}"#.into(),
+                ),
+                (
+                    "dimensions/Shade.hierarchies/Shade.json".into(),
+                    r#"{"Name":"Shade","Elements":[{"Name":"Red","Type":"Numeric"},{"Name":"Blue","Type":"Numeric"}],"Edges":[]}"#.into(),
+                ),
+                (
+                    "cubes/Feeder.json".into(),
+                    r#"{"Name":"Feeder","Dimensions@Code.links":["../dimensions/Shade.json","../dimensions/Measure.json"],"Rules@Code.link":"Feeder.rules"}"#.into(),
+                ),
+                (
+                    "cubes/Feeder.rules".into(),
+                    "SKIPCHECK;\nFEEDERS;\n['Red','Units'] => DB('Sales', !Shade, 'Amount');\n".into(),
+                ),
+                (
+                    "tm1project.json".into(),
+                    r#"{"Version":1.0,"Name":"built","Objects":{"Dimensions":["dimensions/Colour.json","dimensions/Measure.json","dimensions/Shade.json"],"Cubes":["cubes/Sales.json","cubes/Feeder.json"]}}"#.into(),
+                ),
+            ],
+            ..Spec::default()
+        };
+        let root = s(&write_model(&tmp.path().join("model"), &spec));
+        let data = build_data(
+            &tmp.path().join("data"),
+            "sales.csv",
+            &format!("{target},Units,10\n"),
+        );
+        let mut client = Client::start(&root, &data);
+        let explained = client.ok_json("explain_rules", json!({"cube": "Sales", "line": 2}));
+        assert_eq!(
+            explained["rules"][0]["fed_by"].as_array().unwrap().len(),
+            1,
+            "target={target}: {explained}"
+        );
+    }
+}
+
+#[test]
+fn explain_rules_keeps_repeated_source_coordinates_together() {
+    for (source, target, left, right, expected) in [
+        ("'Total',", "!Shade, !Shade", "Left1", "Right2", false),
+        ("'Total',", "!Shade, !Shade", "Left1", "Right1", true),
+        ("'Total',", "!Shade, !Shade", "Left2", "Right2", true),
+        ("", "!Shade, !Shade", "Left1", "Right2", false),
+        ("", "!Shade, 'Right1'", "Unmapped", "Right1", false),
+        ("", "!Shade, 'Right1'", "Left2", "Right1", true),
+        ("'Missing',", "!Shade, !Shade", "Missing", "Right1", false),
+        ("", "!Shade, 'Right1'", "Missing", "Right1", true),
+    ] {
+        let tmp = tempdir();
+        let spec = Spec {
+            rules: format!("SKIPCHECK;\n['{left}','{right}','Amount'] = N: 1;\n"),
+            cube_dimensions: r#""../dimensions/Colour.json","../dimensions/Right.json","../dimensions/Measure.json""#.into(),
+            extra_files: vec![
+                (
+                    "dimensions/Colour.hierarchies/Colour.json".into(),
+                    r#"{"Name":"Colour","Elements":[{"Name":"A","Type":"Consolidated"},{"Name":"B","Type":"Consolidated"},{"Name":"Left1","Type":"Numeric"},{"Name":"Left2","Type":"Numeric"},{"Name":"Missing","Type":"Numeric"},{"Name":"Unmapped","Type":"Numeric"}],"Edges":[{"ParentName":"A","ComponentName":"Left1","Weight":1},{"ParentName":"B","ComponentName":"Left2","Weight":1}]}"#.into(),
+                ),
+                (
+                    "dimensions/Right.json".into(),
+                    r#"{"Name":"Right","Hierarchies@Code.links":["Right.hierarchies/Right.json"]}"#.into(),
+                ),
+                (
+                    "dimensions/Right.hierarchies/Right.json".into(),
+                    r#"{"Name":"Right","Elements":[{"Name":"A","Type":"Consolidated"},{"Name":"B","Type":"Consolidated"},{"Name":"Right1","Type":"Numeric"},{"Name":"Right2","Type":"Numeric"}],"Edges":[{"ParentName":"A","ComponentName":"Right1","Weight":1},{"ParentName":"B","ComponentName":"Right2","Weight":1}]}"#.into(),
+                ),
+                (
+                    "dimensions/Shade.json".into(),
+                    r#"{"Name":"Shade","Hierarchies@Code.links":["Shade.hierarchies/Shade.json"]}"#.into(),
+                ),
+                (
+                    "dimensions/Shade.hierarchies/Shade.json".into(),
+                    r#"{"Name":"Shade","Elements":[{"Name":"Total","Type":"Consolidated"},{"Name":"A","Type":"Numeric"},{"Name":"B","Type":"Numeric"},{"Name":"Missing","Type":"Numeric"}],"Edges":[{"ParentName":"Total","ComponentName":"A","Weight":1},{"ParentName":"Total","ComponentName":"B","Weight":1}]}"#.into(),
+                ),
+                (
+                    "cubes/Feeder.json".into(),
+                    r#"{"Name":"Feeder","Dimensions@Code.links":["../dimensions/Shade.json","../dimensions/Measure.json"],"Rules@Code.link":"Feeder.rules"}"#.into(),
+                ),
+                (
+                    "cubes/Feeder.rules".into(),
+                    format!("SKIPCHECK;\nFEEDERS;\n[{source}'Units'] => DB('Sales', {target}, 'Amount');\n"),
+                ),
+                (
+                    "tm1project.json".into(),
+                    r#"{"Version":1.0,"Name":"built","Objects":{"Dimensions":["dimensions/Colour.json","dimensions/Measure.json","dimensions/Right.json","dimensions/Shade.json"],"Cubes":["cubes/Sales.json","cubes/Feeder.json"]}}"#.into(),
+                ),
+            ],
+            ..Spec::default()
+        };
+        let root = s(&write_model(&tmp.path().join("model"), &spec));
+        // Only the directory exists; explaining source rules does not load CSV data.
+        let data = tmp.path().join("data");
+        std::fs::create_dir(&data).unwrap();
+        let mut client = Client::start(&root, &s(&data));
+        let explained = client.ok_json("explain_rules", json!({"cube": "Sales", "line": 2}));
+        assert_eq!(
+            !explained["rules"][0]["fed_by"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            expected,
+            "source={source}, target={target}, rule={left}/{right}: {explained}"
+        );
+    }
+}
+
+#[test]
+fn explain_rules_keeps_quoted_delimiters_and_stops_at_the_real_statement_end() {
+    for name in ["A;B", "A#B", "A';#B"] {
+        let tmp = tempdir();
+        let quoted = name.replace('\'', "''");
+        let first = format!("['{quoted}'] = N: # comment with a semicolon ;\n  ['Units'] * 2;");
+        let spec = Spec {
+            rules: format!("SKIPCHECK;\n{first}\n['Price'] = N: 3;\n"),
+            measures: format!(r#"{MEASURES}, {{"Name":"{name}","Type":"Numeric"}}"#),
+            ..Spec::default()
+        };
+        let root = s(&write_model(&tmp.path().join("model"), &spec));
+        let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+        let mut client = Client::start(&root, &data);
+        let explained = client.ok_json("explain_rules", json!({"cube": "Sales"}));
+        assert_eq!(
+            explained["rules"][0]["statement"], first,
+            "{name}: {explained}"
+        );
+        assert_eq!(explained["rules"][1]["statement"], "['Price'] = N: 3;");
+    }
+}
+
+#[test]
+fn explain_rules_isolates_rules_and_feeders_sharing_source_lines() {
+    for name in ["A;B", "A#B", "A';#B"] {
+        let tmp = tempdir();
+        let quoted = name.replace('\'', "''");
+        let red_rule = format!("['Red','{quoted}'] = N: 1;");
+        let blue_rule = format!("['Blue','{quoted}'] = N: 2;");
+        let red_feeder = format!("['Red','Units'] => ['{quoted}'];");
+        let blue_feeder = format!("['Blue','Units'] => ['{quoted}'];");
+        let spec = Spec {
+            rules: format!(
+                "# leading comment ;\nSKIPCHECK; {red_rule} {blue_rule} # trailing comment ;\nFEEDERS; {red_feeder} {blue_feeder}\n"
+            ),
+            measures: format!(r#"{MEASURES}, {{"Name":"{name}","Type":"Numeric"}}"#),
+            ..Spec::default()
+        };
+        let root = s(&write_model(&tmp.path().join("model"), &spec));
+        let data = tmp.path().join("data");
+        std::fs::create_dir(&data).unwrap();
+        let mut client = Client::start(&root, &s(&data));
+        let explained = client.ok_json("explain_rules", json!({"cube": "Sales", "line": 2}));
+        let rules = explained["rules"].as_array().unwrap();
+        assert_eq!(rules.len(), 2);
+        for (index, (rule, feeder)) in [(red_rule, red_feeder), (blue_rule, blue_feeder)]
+            .into_iter()
+            .enumerate()
+        {
+            assert_eq!(rules[index]["statement"], rule, "{name}: {explained}");
+            assert_eq!(rules[index]["fed_by"].as_array().unwrap().len(), 1);
+            assert_eq!(rules[index]["fed_by"][0]["statement"], feeder);
+        }
+    }
+}
+
+#[test]
+fn explain_cells_limits_each_name_before_reading_the_model() {
+    let tmp = tempdir();
+    let root = write_model(
+        &tmp.path().join("model"),
+        &Spec::rules("['Amount'] = N: ['Units'] * 2;\n"),
+    );
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+    let mut client = Client::start(&s(&root), &data);
+    client.ok("explain_cells", json!({"cells": ["Sales:Red,Amount"]}));
+    let manifest = root.join("tm1project.json");
+    let original = std::fs::read(&manifest).unwrap();
+    std::fs::write(&manifest, "not JSON").unwrap();
+    let long = "x".repeat(257);
+    for cell in [format!("{long}:Red,Amount"), format!("Sales:{long},Amount")] {
+        let refused = client.refused("explain_cells", json!({"cells": [cell]}));
+        assert!(refused.contains("longer than 256"), "{refused}");
+    }
+    std::fs::write(&manifest, original).unwrap();
+    client.ok("list_cubes", json!({}));
+}
+
+#[test]
 fn explain_cells_returns_the_explain_document() {
     let mut client = Client::shipped();
     let cell = "PnL:FY2026-27,Budget,Jul,CivilCo,Earthworks,Contract Revenue,Amount";
@@ -335,6 +623,8 @@ fn render_report_matches_the_report_command_in_every_format() {
 #[test]
 fn tool_inputs_are_checked_at_the_boundary() {
     let mut client = Client::shipped();
+    let refused = client.refused("list_cubes", json!({"unexpected": "value"}));
+    assert!(refused.contains("unknown field `unexpected`"), "{refused}");
     // No tool takes a path: an extra field is refused, not read.
     let refused = client.refused(
         "render_report",

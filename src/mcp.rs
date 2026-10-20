@@ -59,6 +59,10 @@ agreement with a native TM1 server.";
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct CubesRequest {}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DimensionRequest {
     /// One dimension to list with its elements; every dimension when omitted.
     #[serde(default)]
@@ -151,23 +155,72 @@ fn model_relative(model: &Model, path: &PyPath) -> EngineResult<String> {
         .unwrap_or_else(|| path.display()))
 }
 
-/// The statement starting at `line`: its source lines up to the one whose code ends it.
-// shortcut: a `;` or `#` inside a quoted element name ends the excerpt early, because the
-// parser keeps no end position. Record each statement's last line in rules.rs if a model
-// ever needs those characters.
-fn statement(text: &str, line: usize) -> String {
-    let mut lines = Vec::new();
-    for source in text.lines().skip(line.saturating_sub(1)) {
-        lines.push(source.trim_end());
-        if source.split('#').next().unwrap_or_default().contains(';') {
-            break;
+/// Individual source excerpts, in the parser's rule and feeder order.
+fn statements(text: &str) -> (Vec<String>, Vec<String>) {
+    let mut rules = Vec::new();
+    let mut feeders = Vec::new();
+    let mut start = None;
+    let mut quoted = false;
+    let mut comment = false;
+    let mut feeder = false;
+    for (index, character) in text.char_indices() {
+        if comment {
+            comment = character != '\n';
+            continue;
+        }
+        if !quoted && character == '#' {
+            comment = true;
+            continue;
+        }
+        if start.is_none() && !character.is_whitespace() {
+            start = Some(index);
+        }
+        // A doubled quote toggles twice, preserving the quoted state.
+        if character == '\'' {
+            quoted = !quoted;
+        } else if !quoted {
+            if character == '=' && text[index..].starts_with("=>") {
+                feeder = true;
+            }
+            if character == ';' {
+                if let Some(start) = start.take().filter(|&start| text[start..].starts_with('[')) {
+                    let excerpt = text[start..=index]
+                        .lines()
+                        .map(str::trim_end)
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    if feeder {
+                        feeders.push(excerpt);
+                    } else {
+                        rules.push(excerpt);
+                    }
+                }
+                feeder = false;
+            }
         }
     }
-    lines.join("\n")
+    (rules, feeders)
 }
 
 /// Leaf elements an area reaches, per cube dimension position; absent positions are open.
 type Reach = HashMap<usize, HashSet<String>>;
+
+/// Literal positions plus the alternatives for each carried source dimension.
+/// Positions using the same source element must match one alternative together.
+struct FeederReach {
+    fixed: Reach,
+    carried: Vec<Vec<Reach>>,
+}
+
+impl FeederReach {
+    fn reaches(&self, area: &Reach) -> bool {
+        overlaps(area, &self.fixed)
+            && self
+                .carried
+                .iter()
+                .all(|alternatives| alternatives.iter().any(|choice| overlaps(area, choice)))
+    }
+}
 
 fn leaves(model: &Model, dimension: &str, element: &str) -> EngineResult<HashSet<String>> {
     Ok(model
@@ -193,19 +246,68 @@ fn feeder_reach(
     source: &Cube,
     target: &Cube,
     feeder: &Feeder,
-) -> EngineResult<Reach> {
+) -> EngineResult<FeederReach> {
+    let source_reach = area_reach(model, source, &feeder.area)?;
     if feeder.target_cube.is_none() {
-        return area_reach(model, source, &feeder.target);
+        let mut reach = source_reach;
+        reach.extend(area_reach(model, source, &feeder.target)?);
+        return Ok(FeederReach {
+            fixed: reach,
+            carried: Vec::new(),
+        });
     }
-    let mut reach = Reach::new();
+    let mut fixed = Reach::new();
+    let mut positions: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for (index, element) in feeder.target.elements.iter().enumerate() {
-        // `!Dimension` follows the fed cell, so it leaves the position open.
-        if element.starts_with('!') || index >= target.dimensions.len() {
+        if index >= target.dimensions.len() {
             continue;
         }
-        reach.insert(index, leaves(model, &target.dimensions[index], element)?);
+        if let Some(name) = element.strip_prefix('!') {
+            let source_index = source
+                .dimensions
+                .iter()
+                .position(|dimension| dimension == name)
+                .ok_or_else(|| {
+                    Error::model(format!(
+                        "cube {} has no dimension named {}",
+                        source.name,
+                        py::repr_str(name)
+                    ))
+                })?;
+            positions.entry(source_index).or_default().push(index);
+            continue;
+        }
+        fixed.insert(index, leaves(model, &target.dimensions[index], element)?);
     }
-    Ok(reach)
+    let mut carried = Vec::new();
+    for (source_index, positions) in positions {
+        let hierarchy = model.hierarchy(&source.dimensions[source_index])?;
+        let selected: Vec<&str> = match source_reach.get(&source_index) {
+            Some(selected) => selected.iter().map(String::as_str).collect(),
+            None => hierarchy
+                .elements
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| hierarchy.index_is_leaf(*index))
+                .map(|(_, element)| element.name.as_str())
+                .collect(),
+        };
+        let mut alternatives = Vec::new();
+        'source: for element in selected {
+            let mut choice = Reach::new();
+            for &index in &positions {
+                let dimension = &target.dimensions[index];
+                if !model.hierarchy(dimension)?.has(element) {
+                    continue 'source;
+                }
+                choice.insert(index, leaves(model, dimension, element)?);
+            }
+            alternatives.push(choice);
+        }
+        // An empty group is unreachable, rather than an unconstrained area.
+        carried.push(alternatives);
+    }
+    Ok(FeederReach { fixed, carried })
 }
 
 /// Whether two areas can share a cell: every position both constrain shares a leaf.
@@ -295,7 +397,7 @@ impl Server {
                        rules file, whether it declares SKIPCHECK and its rule and feeder counts.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
-    fn list_cubes(&self) -> Result<String, String> {
+    fn list_cubes(&self, Parameters(_request): Parameters<CubesRequest>) -> Result<String, String> {
         self.with_model(false, |model| {
             let mut cubes = Vec::new();
             for cube in &model.cubes {
@@ -489,7 +591,8 @@ impl Server {
             let chosen: Vec<_> = rule_set
                 .rules
                 .iter()
-                .filter(|rule| request.line.is_none_or(|line| rule.source_line == line))
+                .enumerate()
+                .filter(|(_, rule)| request.line.is_none_or(|line| rule.source_line == line))
                 .collect();
             if let (Some(line), true) = (request.line, chosen.is_empty()) {
                 let starts: Vec<String> = rule_set
@@ -510,14 +613,14 @@ impl Server {
                     continue;
                 };
                 let mut text = None;
-                for feeder in &source_rules.feeders {
+                for (index, feeder) in source_rules.feeders.iter().enumerate() {
                     let target = feeder.target_cube.as_deref().unwrap_or(&source.name);
                     if target != cube.name {
                         continue;
                     }
                     let text = match &mut text {
                         Some(text) => text,
-                        None => text.insert(rules_text(source)?),
+                        None => text.insert(statements(&rules_text(source)?).1),
                     };
                     let file = match &source.rules_source {
                         Some(path) => Json::String(model_relative(model, path)?),
@@ -528,14 +631,14 @@ impl Server {
                         "cube": source.name,
                         "file": file,
                         "line": feeder.source_line,
-                        "statement": statement(text, feeder.source_line),
+                        "statement": text.get(index).ok_or_else(|| usage("rules source changed while being read".into()))?,
                     });
                     feeders.push((reach, described));
                 }
             }
-            let text = rules_text(cube)?;
+            let (statements, _) = statements(&rules_text(cube)?);
             let mut rules = Vec::new();
-            for rule in chosen {
+            for (index, rule) in chosen {
                 // Consolidated cells need no feeders, so a C: rule has none listed.
                 let fed_by: Vec<&Json> = if rule.area.qualifier == "C" {
                     Vec::new()
@@ -543,7 +646,7 @@ impl Server {
                     let reach = area_reach(model, cube, &rule.area)?;
                     feeders
                         .iter()
-                        .filter(|(target, _)| overlaps(&reach, target))
+                        .filter(|(target, _)| target.reaches(&reach))
                         .map(|(_, described)| described)
                         .collect()
                 };
@@ -551,7 +654,7 @@ impl Server {
                     "line": rule.source_line,
                     "qualifier": rule.area.qualifier,
                     "area": rule.area.elements,
-                    "statement": statement(&text, rule.source_line),
+                    "statement": statements.get(index).ok_or_else(|| usage("rules source changed while being read".into()))?,
                     "fed_by": fed_by,
                 }));
             }
@@ -583,6 +686,12 @@ impl Server {
         }
         for cell in &request.cells {
             check_text("cell", cell, MAX_NAME_CHARS * 16)?;
+            if let Some((cube, elements)) = cell.split_once(':') {
+                check_text("cube", py::strip(cube), MAX_NAME_CHARS)?;
+                for element in elements.split(',') {
+                    check_text("element", py::strip(element), MAX_NAME_CHARS)?;
+                }
+            }
         }
         let mut args = Namespace::default();
         args.values.insert("cell", Value::List(request.cells));

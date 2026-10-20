@@ -35,6 +35,13 @@ their feeders, explain cells and render the profit and loss. No tool takes a
 path. It is handled before the argument parser, so the top-level help text
 still matches 0.3.0.
 
+Rule explanations retain source coordinates in local and cross-cube feeders,
+keep repeated source coordinates together, resolve carried element names in
+the target hierarchy and preserve quoted semicolons and hashes in statement
+excerpts, including distinct statements sharing a line. Every tool rejects
+unknown input fields, including `list_cubes`. Cell references enforce the
+256-character limit on each cube and element name before reading the model.
+
 A differential harness ran 0.3.0 at revision 0dd9c53 and this binary over
 thousands of generated model trees, rules files, CSV inputs and command lines
 and found no difference beyond those listed. `tests/data/python_golden.json`
@@ -45,7 +52,8 @@ every platform.
 
 ### Command line
 
-No subcommand was added beyond `demo` from main. The Python library calls map
+The added subcommands are `demo` from main and the stdio `mcp` server above.
+The Python library calls map
 onto the command line:
 
 | 0.3.0 Python API | Use instead |
