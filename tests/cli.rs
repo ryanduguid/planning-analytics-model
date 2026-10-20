@@ -319,6 +319,57 @@ fn pythonunbuffered_ends_the_command_at_the_failed_print() {
 }
 
 #[test]
+fn pythonintmaxstrdigits_sets_the_integer_digit_limit_as_python_does() {
+    let tmp = tempdir();
+    let root = tmp.path().join("model");
+    copy_dir(&model_root(), &root);
+    let manifest = root.join("tm1project.json");
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    let at = text.find('{').unwrap() + 1;
+    let field = format!("\"Unused\": {}, ", "7".repeat(4301));
+    std::fs::write(&manifest, format!("{}{field}{}", &text[..at], &text[at..])).unwrap();
+    let validate = |limit: Option<&str>| {
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"));
+        command.arg("validate").arg(&root);
+        match limit {
+            Some(value) => command.env("PYTHONINTMAXSTRDIGITS", value),
+            None => command.env_remove("PYTHONINTMAXSTRDIGITS"),
+        };
+        let output = command.output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n"),
+        )
+    };
+    let (code, err) = validate(None);
+    assert_eq!(code, Some(2));
+    assert!(err.contains("Exceeds the limit (4300 digits)"), "{err}");
+    assert_eq!(validate(Some("0")).0, Some(0));
+    let (code, err) = validate(Some("640"));
+    assert_eq!(code, Some(2));
+    assert!(err.contains("Exceeds the limit (640 digits)"), "{err}");
+    let (code, err) = validate(Some("5"));
+    assert_eq!(code, Some(1));
+    assert!(
+        err.starts_with("Fatal Python error: config_init_int_max_str_digits: "),
+        "{err}"
+    );
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
 fn a_failed_print_wins_over_a_later_cells_model_fault() {
     // The second cell fails only while consolidating, after the first prints.
     let tmp = tempdir();

@@ -247,6 +247,7 @@ pub fn float_repr(f: f64) -> String {
     let (mantissa, exponent) = sci.split_once('e').expect("scientific notation");
     let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
     let decpt: i64 = exponent.parse::<i64>().expect("exponent") + 1;
+    let digits = nearest_shortest(f.abs(), digits, decpt);
     let n = digits.len() as i64;
     let body = if decpt <= -4 || decpt > 16 {
         let mut m = digits[..1].to_string();
@@ -270,13 +271,100 @@ pub fn float_repr(f: f64) -> String {
     format!("{sign}{body}")
 }
 
-/// Python refuses to convert more than this many decimal digits to or from an `int`.
+/// Of the shortest digit strings that read back as `f`, the one CPython's
+/// `repr` (dtoa mode 0) prints: nearest to `f`'s exact binary value, an exact
+/// tie going to the even last digit. Rust's shortest formatting has the same
+/// length but can break such a tie upwards: `1 + 2**-17` is
+/// `1.0000076293945312` in Python, not `…313`.
+fn nearest_shortest(f: f64, digits: String, decpt: i64) -> String {
+    use num_traits::{One, Signed};
+    let n = digits.len();
+    let scale = decpt - n as i64; // value = digits * 10**scale
+    let reads_back =
+        |candidate: &str| format!("{candidate}e{scale}").parse::<f64>().ok() == Some(f);
+    // f = mantissa * 2**exp2, exactly.
+    let bits = f.to_bits();
+    let biased = ((bits >> 52) & 0x7ff) as i64;
+    let fraction = bits & ((1u64 << 52) - 1);
+    let (mantissa, exp2) = if biased == 0 {
+        (fraction, -1074)
+    } else {
+        (fraction | (1u64 << 52), biased - 1075)
+    };
+    // Compare candidate * 10**scale with mantissa * 2**exp2 on a common integer scale.
+    let pow = |base: u32, e: i64| num_traits::pow(BigInt::from(base), e.unsigned_abs() as usize);
+    let (mut exact, mut unit) = (BigInt::from(mantissa), BigInt::one());
+    if exp2 >= 0 {
+        exact *= pow(2, exp2);
+    } else {
+        unit *= pow(2, exp2);
+    }
+    if scale >= 0 {
+        unit *= pow(10, scale);
+    } else {
+        exact *= pow(10, scale);
+    }
+    let distance = |candidate: &BigInt| (candidate * &unit - &exact).abs();
+    let current: BigInt = digits.parse().expect("ASCII digits");
+    let mut best = (distance(&current), current.clone());
+    for step in [-1i32, 1] {
+        let candidate = &current + step;
+        let text = candidate.to_string();
+        if text.len() != n || !reads_back(&text) {
+            continue;
+        }
+        let d = distance(&candidate);
+        let even = (&candidate % 2u32) == BigInt::from(0);
+        if d < best.0 || (d == best.0 && even) {
+            best = (d, candidate);
+        }
+    }
+    best.1.to_string()
+}
+
+/// Python's default limit on decimal digits converted to or from an `int`.
 pub const INT_MAX_STR_DIGITS: usize = 4300;
+
+/// The fatal error CPython reports at start-up for an invalid `PYTHONINTMAXSTRDIGITS`.
+pub const INT_MAX_STR_DIGITS_FATAL: &str = "Fatal Python error: config_init_int_max_str_digits: \
+     PYTHONINTMAXSTRDIGITS: invalid limit; must be >= 640 or 0 for unlimited.\nPython runtime \
+     state: preinitialized\n\n";
+
+/// The digit limit in force: `PYTHONINTMAXSTRDIGITS` as CPython reads it at
+/// start-up (`None` when its value is invalid), with 0 meaning no limit.
+pub fn int_max_str_digits() -> Option<usize> {
+    static LIMIT: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+    *LIMIT.get_or_init(|| {
+        let value = std::env::var_os("PYTHONINTMAXSTRDIGITS").unwrap_or_default();
+        if value.is_empty() {
+            return Some(INT_MAX_STR_DIGITS);
+        }
+        // _Py_str_to_int: strtol in base 10, leading C whitespace and a sign
+        // allowed, nothing after the digits, within a C int.
+        let text = value.to_str()?;
+        let text = text.trim_start_matches([' ', '\t', '\n', '\x0b', '\x0c', '\r']);
+        let (negative, digits) = match text.as_bytes().first() {
+            Some(b'-') => (true, &text[1..]),
+            Some(b'+') => (false, &text[1..]),
+            _ => (false, text),
+        };
+        if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        let limit: i64 = digits.parse().ok().filter(|v| *v <= i64::from(i32::MAX))?;
+        match (negative, limit) {
+            (_, 0) => Some(usize::MAX),
+            (false, limit) if limit >= 640 => Some(limit as usize),
+            _ => None,
+        }
+    })
+}
 
 /// The `ValueError` Python raises when parsing an over-long decimal `int`.
 pub fn int_digits_error(digits: usize) -> String {
+    let limit = int_max_str_digits().unwrap_or(INT_MAX_STR_DIGITS);
     format!(
-        "Exceeds the limit ({INT_MAX_STR_DIGITS} digits) for integer string conversion: value has \
+        "Exceeds the limit ({limit} digits) for integer string conversion: value has \
          {digits} digits; use sys.set_int_max_str_digits() to increase the limit"
     )
 }
@@ -342,7 +430,7 @@ pub fn parse_int(s: &str) -> Result<BigInt, String> {
     if digits.is_empty() || previous_underscore {
         return Err(invalid());
     }
-    if digits.len() > INT_MAX_STR_DIGITS {
+    if digits.len() > int_max_str_digits().unwrap_or(INT_MAX_STR_DIGITS) {
         return Err(int_digits_error(digits.len()));
     }
     let value = BigInt::parse_bytes(digits.as_bytes(), 10).ok_or_else(invalid)?;

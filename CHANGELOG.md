@@ -83,7 +83,8 @@ onto the command line:
   may be judged differently.
 - **Lone surrogates.** A JSON `\u` escape for a lone UTF-16 surrogate (U+D800
   to U+DFFF) is refused as invalid JSON when the model loads. 0.3.0 kept the
-  character, then failed when printing it.
+  character, and failed only if it later printed it as text, for example in
+  an element name; an unused field passed.
 - **Non-UTF-8 names.** A command line argument, or a file name the engine
   reads from the file system (a model or data directory entry, a symbolic
   link's target, the working directory), that is not Unicode text is refused
@@ -94,10 +95,13 @@ onto the command line:
 - **Interleaving.** Where stdout and stderr go to the same file, the order of
   their lines may differ from 0.3.0's, whose buffer sizes it does not copy.
   Each stream on its own is identical.
-- **Output encoding.** Output is always UTF-8, which is also Python 3.15's
-  default; `PYTHONIOENCODING` is not read. `PYTHONUNBUFFERED` is: as in
-  0.3.0, it makes stdout flush at each line, so a failed write ends the
-  command with exit 1 rather than failing the final flush with exit 120.
+- **Python environment variables.** Output is always UTF-8, which is also
+  Python 3.15's default; `PYTHONIOENCODING` is not read. Two variables are
+  read as 0.3.0's interpreter read them: `PYTHONUNBUFFERED` makes stdout
+  unbuffered, so a failed write ends the command with exit 1 rather than
+  failing the final flush with exit 120, and `PYTHONINTMAXSTRDIGITS` sets
+  the digit limit for JSON integers (0 for none; an invalid value stops the
+  binary with CPython's start-up error and exit 1).
 - **Demo storage.** `demo` writes its built-in model and data to a new
   private temporary directory and removes it afterwards, so it needs
   writable temporary storage; 0.3.0 read its package data in place.

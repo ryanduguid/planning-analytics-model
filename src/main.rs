@@ -36,6 +36,12 @@ fn run_with(out: impl Write, argv: &[String], terminal: &Terminal) -> i32 {
 }
 
 fn run() -> i32 {
+    // CPython reads PYTHONINTMAXSTRDIGITS before anything else and stops on a bad value.
+    if py::int_max_str_digits().is_none() {
+        let mut err = TextStream::new(std::io::stderr());
+        let _ = err.write_all(py::INT_MAX_STR_DIGITS_FATAL.as_bytes());
+        return 1;
+    }
     let mut argv = Vec::new();
     for arg in std::env::args_os().skip(1) {
         match arg.into_string() {
