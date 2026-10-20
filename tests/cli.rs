@@ -505,6 +505,10 @@ fn a_diagnostic_that_cannot_be_written_loses_the_original_exit_code() {
         with_closed(Closed::Err, &["validate", &bad], true).0,
         Some(1)
     );
+    // An argument error: argparse swallows the failed write, then buffered
+    // stderr fails at shutdown.
+    assert_eq!(with_closed(Closed::Err, &["--nope"], false).0, Some(120));
+    assert_eq!(with_closed(Closed::Err, &["--nope"], true).0, Some(1));
 }
 
 #[test]
