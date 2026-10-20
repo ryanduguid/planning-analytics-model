@@ -907,47 +907,51 @@ pub fn main(argv: &[String], terminal: &Terminal, streams: &mut Streams) -> i32 
             return if code == 0 { EXIT_OK } else { EXIT_USAGE };
         }
     };
-    match dispatch(&args, streams) {
-        Ok(code) => code,
-        Err(Error::Cli(code, message)) => {
-            let _ = streams.eprint(&format!("pacioliscube: {message}"));
-            code
-        }
-        Err(Error::Evaluation(message)) => {
-            let _ = streams.eprint(&format!("pacioliscube: {message}"));
-            EXIT_CALCULATION
-        }
-        Err(Error::Model(message)) => {
-            let _ = streams.eprint(&format!("pacioliscube: {message}"));
-            EXIT_INVALID_MODEL
-        }
+    let (diagnostic, code) = match dispatch(&args, streams) {
+        Ok(code) => return code,
+        Err(Error::Cli(code, message)) => (format!("pacioliscube: {message}"), code),
+        Err(Error::Evaluation(message)) => (format!("pacioliscube: {message}"), EXIT_CALCULATION),
+        Err(Error::Model(message)) => (format!("pacioliscube: {message}"), EXIT_INVALID_MODEL),
+        // A backstop: the places that read a file map their own failures.
         Err(Error::Os(message) | Error::Decode(message)) => {
-            // A backstop: the places that read a file map their own failures.
-            let _ = streams.eprint(&format!("pacioliscube: {message}"));
-            EXIT_USAGE
+            (format!("pacioliscube: {message}"), EXIT_USAGE)
         }
-        Err(Error::RuleSyntax(message)) => {
-            uncaught(
-                streams,
-                &Uncaught::new("pacioliscube.rules.RuleSyntaxError", message),
-            );
-            EXIT_USAGE
-        }
-        Err(Error::Uncaught(error)) => {
-            uncaught(streams, &error);
-            EXIT_USAGE
-        }
+        Err(Error::RuleSyntax(message)) => (
+            uncaught(&Uncaught::new(
+                "pacioliscube.rules.RuleSyntaxError",
+                message,
+            )),
+            EXIT_USAGE,
+        ),
+        Err(Error::Uncaught(error)) => (uncaught(&error), EXIT_USAGE),
+    };
+    match streams.eprint(&diagnostic) {
+        Ok(()) => code,
+        // Python's handler printed to stderr before returning its code. When
+        // that print failed, the OSError escaped the handler (exit 1); with
+        // stderr buffered it failed instead when stderr was flushed at
+        // shutdown (exit 120). Either way the original code was lost.
+        Err(_) if python_unbuffered() => EXIT_USAGE,
+        Err(_) => EXIT_FLUSH_FAILED,
     }
 }
 
+/// Python's exit status when flushing a standard stream fails at shutdown.
+pub const EXIT_FLUSH_FAILED: i32 = 120;
+
+/// `PYTHONUNBUFFERED`: a non-empty value made Python's standard streams unbuffered.
+pub fn python_unbuffered() -> bool {
+    std::env::var_os("PYTHONUNBUFFERED").is_some_and(|v| !v.is_empty())
+}
+
 /// Where the Python engine ended in a traceback, the binary says what was raised.
-fn uncaught(streams: &mut Streams, error: &Uncaught) {
+fn uncaught(error: &Uncaught) -> String {
     if error.message.is_empty() {
-        let _ = streams.eprint(&format!("pacioliscube: unexpected error: {}", error.name));
+        format!("pacioliscube: unexpected error: {}", error.name)
     } else {
-        let _ = streams.eprint(&format!(
+        format!(
             "pacioliscube: unexpected error: {}: {}",
             error.name, error.message
-        ));
+        )
     }
 }

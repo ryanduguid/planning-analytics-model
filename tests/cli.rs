@@ -319,6 +319,144 @@ fn pythonunbuffered_ends_the_command_at_the_failed_print() {
 }
 
 #[test]
+fn a_failed_print_wins_over_a_later_cells_model_fault() {
+    // The second cell fails only while consolidating, after the first prints.
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), AMBIGUOUS_AREA_RULES, &[]);
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+    let (code, err) = big_stack(move || {
+        let argv: Vec<String> = [
+            "calculate",
+            &root,
+            "--data",
+            &data,
+            "--cell",
+            "Sales:Red,Units",
+            "--cell",
+            "Sales:Total,Amount",
+        ]
+        .iter()
+        .map(|a| a.to_string())
+        .collect();
+        let mut err = Vec::new();
+        let code = pacioliscube::cli::main(
+            &argv,
+            &pacioliscube::terminal::Terminal::plain(),
+            &mut pacioliscube::cli::Streams {
+                out: &mut Refusing,
+                err: &mut err,
+            },
+        );
+        (code, String::from_utf8(err).unwrap())
+    });
+    assert_eq!(code, 1);
+    assert_eq!(err, "pacioliscube: the destination refused the write\n");
+}
+
+/// A refused stream on the binary's own standard handles: `Out` closes the
+/// reading end of stdout, `Err` of stderr, before the process writes.
+enum Closed {
+    Out,
+    Err,
+}
+
+fn with_closed(closed: Closed, args: &[&str], unbuffered: bool) -> (Option<i32>, String) {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"));
+    command
+        .args(args)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    if unbuffered {
+        command.env("PYTHONUNBUFFERED", "1");
+    } else {
+        command.env_remove("PYTHONUNBUFFERED");
+    }
+    let mut child = command.spawn().unwrap();
+    match closed {
+        Closed::Out => drop(child.stdout.take()),
+        Closed::Err => drop(child.stderr.take()),
+    }
+    let output = child.wait_with_output().unwrap();
+    let kept = match closed {
+        Closed::Out => output.stderr,
+        Closed::Err => output.stdout,
+    };
+    (
+        output.status.code(),
+        String::from_utf8_lossy(&kept).replace("\r\n", "\n"),
+    )
+}
+
+#[test]
+fn output_left_pending_by_a_failed_write_fails_again_at_shutdown() {
+    // The first value stays buffered; the second, larger than the buffer,
+    // fails while flushing it, and the pending bytes fail again at shutdown.
+    let tmp = tempdir();
+    let root = tmp.path().join("model");
+    write(
+        &root.join("tm1project.json"),
+        r#"{"Name":"two","Objects":{"Dimensions":["dimensions/D.json"],"Cubes":["cubes/Sales.json"]}}"#,
+    );
+    write(
+        &root.join("dimensions/D.json"),
+        r#"{"Name":"D","Hierarchies@Code.links":["h.json"]}"#,
+    );
+    write(
+        &root.join("dimensions/h.json"),
+        r#"{"Name":"D","Elements":[{"Name":"First","Type":"Numeric"},{"Name":"Second","Type":"Numeric"}],"Edges":[]}"#,
+    );
+    write(
+        &root.join("cubes/Sales.json"),
+        r#"{"Name":"Sales","Dimensions":[{"@id":"Dimensions('D')"}]}"#,
+    );
+    let data = tmp.path().join("data");
+    write(
+        &data.join("Sales.csv"),
+        "D,Value\nFirst,1E10000\nSecond,1E200000\n",
+    );
+    let (root, data) = (s(&root), s(&data));
+    let args = [
+        "calculate",
+        &root,
+        "--data",
+        &data,
+        "--cell",
+        "Sales:First",
+        "--cell",
+        "Sales:Second",
+    ];
+    let (code, err) = with_closed(Closed::Out, &args, false);
+    assert_eq!(code, Some(120), "{err}");
+    let lines: Vec<&str> = err.lines().collect();
+    assert_eq!(lines.len(), 3, "{err}");
+    assert!(lines[0].starts_with("pacioliscube: [Errno "), "{err}");
+    assert_eq!(lines[1], "Exception ignored while flushing sys.stdout:");
+    // Unbuffered, the first write fails at once and leaves nothing pending.
+    let (code, err) = with_closed(Closed::Out, &args, true);
+    assert_eq!(code, Some(1), "{err}");
+    assert_eq!(err.lines().count(), 1, "{err}");
+}
+
+#[test]
+fn a_diagnostic_that_cannot_be_written_loses_the_original_exit_code() {
+    let tmp = tempdir();
+    let bad = tmp.path().join("model");
+    write(&bad.join("tm1project.json"), r#"{"Name": "#);
+    let bad = s(&bad);
+    assert_eq!(run(&["validate", &bad]).0, 2);
+    // Buffered stderr fails at shutdown (120); unbuffered, the print raises
+    // out of Python's handler (1).
+    assert_eq!(
+        with_closed(Closed::Err, &["validate", &bad], false).0,
+        Some(120)
+    );
+    assert_eq!(
+        with_closed(Closed::Err, &["validate", &bad], true).0,
+        Some(1)
+    );
+}
+
+#[test]
 fn a_finding_prints_as_severity_code_location_then_message() {
     let tmp = tempdir();
     let root = build_model(&tmp.path().join("model"), UNKNOWN_ELEMENT_RULES, &[]);

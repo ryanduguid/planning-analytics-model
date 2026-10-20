@@ -9,35 +9,11 @@ use pacioliscube::terminal::Terminal;
 /// sized so that depths far beyond any planning model still evaluate.
 const STACK_BYTES: usize = 1 << 30;
 
-/// Python's exit status when flushing a standard stream fails at shutdown.
-const EXIT_FLUSH_FAILED: i32 = 120;
-
-/// stdout as the command wrote it, remembering whether a write failed: that
-/// failure has already ended the command, as Python's OSError backstop did.
-struct Watched<W: Write> {
-    inner: W,
-    failed: bool,
-}
-
-impl<W: Write> Write for Watched<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let written = self.inner.write(buf);
-        self.failed |= written.is_err();
-        written
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.inner.flush()
-    }
-}
-
-/// Run the command, then flush stdout as interpreter shutdown did: a failure
-/// there is reported the way CPython reports it, with exit status 120.
+/// Run the command, then flush stdout as interpreter shutdown did: output
+/// still pending there, including what an earlier failed write left behind,
+/// fails the way CPython reports it, with exit status 120.
 fn run_with(out: impl Write, argv: &[String], terminal: &Terminal) -> i32 {
-    let mut out = Watched {
-        inner: TextStream::new(out),
-        failed: false,
-    };
+    let mut out = TextStream::new(out);
     let mut err = TextStream::new(std::io::stderr());
     let mut code = cli::main(
         argv,
@@ -47,15 +23,13 @@ fn run_with(out: impl Write, argv: &[String], terminal: &Terminal) -> i32 {
             err: &mut err,
         },
     );
-    if let Err(error) = out.flush()
-        && !out.failed
-    {
+    if let Err(error) = out.flush() {
         let (name, text) = py::stream_oserror(&error);
         let _ = writeln!(
             err,
             "Exception ignored while flushing sys.stdout:\n{name}: {text}"
         );
-        code = EXIT_FLUSH_FAILED;
+        code = cli::EXIT_FLUSH_FAILED;
     }
     let _ = err.flush();
     code
@@ -78,12 +52,17 @@ fn run() -> i32 {
         }
     }
     let terminal = Terminal::detect();
-    // Python buffers stdout when it is not a terminal and flushes it by line
-    // when it is or when PYTHONUNBUFFERED is set, so a failed write ends the
-    // command at the print that failed; stderr is written as each line is printed.
-    let unbuffered = std::env::var_os("PYTHONUNBUFFERED").is_some_and(|v| !v.is_empty());
-    if terminal.stdout_tty || unbuffered {
+    // Python flushes stdout by line on a terminal and buffers it elsewhere.
+    // PYTHONUNBUFFERED writes each piece straight to the file, so a failed
+    // write ends the command and leaves nothing pending for shutdown; stderr
+    // is written as each line is printed.
+    if terminal.stdout_tty {
         run_with(LineWriter::new(std::io::stdout()), &argv, &terminal)
+    } else if let Some(raw) = cli::python_unbuffered()
+        .then(raw_stdout)
+        .and_then(Result::ok)
+    {
+        run_with(raw, &argv, &terminal)
     } else {
         run_with(
             BufWriter::with_capacity(128 * 1024, std::io::stdout()),
@@ -91,6 +70,20 @@ fn run() -> i32 {
             &terminal,
         )
     }
+}
+
+/// stdout with no buffer at all: a duplicate of its handle, written directly.
+#[cfg(unix)]
+fn raw_stdout() -> std::io::Result<std::fs::File> {
+    use std::os::fd::AsFd;
+    Ok(std::io::stdout().as_fd().try_clone_to_owned()?.into())
+}
+
+/// stdout with no buffer at all: a duplicate of its handle, written directly.
+#[cfg(windows)]
+fn raw_stdout() -> std::io::Result<std::fs::File> {
+    use std::os::windows::io::AsHandle;
+    Ok(std::io::stdout().as_handle().try_clone_to_owned()?.into())
 }
 
 fn main() {

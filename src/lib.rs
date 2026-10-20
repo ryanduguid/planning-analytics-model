@@ -39,17 +39,19 @@ impl<W: std::io::Write> TextStream<W> {
 }
 
 impl<W: std::io::Write> std::io::Write for TextStream<W> {
+    /// One write per call, translated first, as `TextIOWrapper.write` hands
+    /// its buffer one encoded chunk: what stays pending after a failed write
+    /// then matches Python's.
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if cfg!(windows) {
-            let mut start = 0;
-            for (i, b) in buf.iter().enumerate() {
+        if cfg!(windows) && buf.contains(&b'\n') {
+            let mut translated = Vec::with_capacity(buf.len() + buf.len() / 16);
+            for b in buf {
                 if *b == b'\n' {
-                    self.inner.write_all(&buf[start..i])?;
-                    self.inner.write_all(b"\r\n")?;
-                    start = i + 1;
+                    translated.push(b'\r');
                 }
+                translated.push(*b);
             }
-            self.inner.write_all(&buf[start..])?;
+            self.inner.write_all(&translated)?;
         } else {
             self.inner.write_all(buf)?;
         }

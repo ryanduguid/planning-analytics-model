@@ -83,7 +83,7 @@ impl Spec {
     }
 }
 
-fn write(path: &Path, text: &str) {
+pub fn write(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, text).unwrap();
 }
