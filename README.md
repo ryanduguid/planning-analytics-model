@@ -1,5 +1,33 @@
 # IBM Planning Analytics budget model with an offline rule evaluator
 
+Run and test an IBM Planning Analytics (TM1) budget model's rules offline, without a TM1 server.
+
+Build the command line from a clone (rustup installs the pinned toolchain on first use), then print a first result from the synthetic model built into the binary:
+
+```bash
+git clone https://github.com/ryanduguid/planning-analytics-model.git
+cd planning-analytics-model
+cargo install --locked --path .
+pacioliscube demo
+```
+
+```text
+PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100
+```
+
+[![tests](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/ci.yml?branch=main&label=tests&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/ryanduguid/planning-analytics-model?label=coverage&labelColor=000000&style=flat-square)](https://codecov.io/gh/ryanduguid/planning-analytics-model)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/codeql.yml?branch=main&label=CodeQL&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml)
+[![Snyk](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/snyk.yml?branch=main&label=Snyk&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml)
+[![SonarCloud](https://img.shields.io/sonar/quality_gate/ryanduguid_planning-analytics-model?server=https%3A%2F%2Fsonarcloud.io&label=SonarCloud&labelColor=000000&style=flat-square)](https://sonarcloud.io/summary/new_code?id=ryanduguid_planning-analytics-model)
+[![Codacy code quality](https://img.shields.io/codacy/grade/85d3cab41a8e4cc5ac3dd47c8996c78e?label=Codacy&labelColor=000000&style=flat-square)](https://app.codacy.com/gh/ryanduguid/planning-analytics-model/dashboard)<br>
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/ryanduguid/planning-analytics-model?label=Scorecard&labelColor=000000&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/ryanduguid/planning-analytics-model)
+[![OpenSSF Best Practices](https://img.shields.io/cii/level/15428?label=Best%20Practices&labelColor=000000&style=flat-square)](https://www.bestpractices.dev/projects/15428)
+[![SLSA 3](https://img.shields.io/badge/SLSA-level%203-990024?labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/attestations)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned-990024?labelColor=000000&style=flat-square&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)<br>
+[![rust](https://img.shields.io/badge/rust-1.99-66023C?labelColor=000000&style=flat-square)](https://www.rust-lang.org/)
+[![licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-66023C?labelColor=000000&style=flat-square)](LICENSE)
+
 ```
 +----------------------------------------------------------------------+
 |                       planning-analytics-model                       |
@@ -15,19 +43,6 @@
 ```
 
 The PaciolisCube budget model. This repository was named PaciolisCube until September 2026; the old URL redirects.
-
-[![tests](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/ci.yml?branch=main&label=tests&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/ci.yml)
-[![Codecov](https://img.shields.io/codecov/c/github/ryanduguid/planning-analytics-model?label=coverage&labelColor=000000&style=flat-square)](https://codecov.io/gh/ryanduguid/planning-analytics-model)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/codeql.yml?branch=main&label=CodeQL&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/codeql.yml)
-[![Snyk](https://img.shields.io/github/actions/workflow/status/ryanduguid/planning-analytics-model/snyk.yml?branch=main&label=Snyk&labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/actions/workflows/snyk.yml)
-[![SonarCloud](https://img.shields.io/sonar/quality_gate/ryanduguid_planning-analytics-model?server=https%3A%2F%2Fsonarcloud.io&label=SonarCloud&labelColor=000000&style=flat-square)](https://sonarcloud.io/summary/new_code?id=ryanduguid_planning-analytics-model)
-[![Codacy code quality](https://img.shields.io/codacy/grade/85d3cab41a8e4cc5ac3dd47c8996c78e?label=Codacy&labelColor=000000&style=flat-square)](https://app.codacy.com/gh/ryanduguid/planning-analytics-model/dashboard)<br>
-[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/ryanduguid/planning-analytics-model?label=Scorecard&labelColor=000000&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/ryanduguid/planning-analytics-model)
-[![OpenSSF Best Practices](https://img.shields.io/cii/level/15428?label=Best%20Practices&labelColor=000000&style=flat-square)](https://www.bestpractices.dev/projects/15428)
-[![SLSA 3](https://img.shields.io/badge/SLSA-level%203-990024?labelColor=000000&style=flat-square)](https://github.com/ryanduguid/planning-analytics-model/attestations)
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned-990024?labelColor=000000&style=flat-square&logo=virustotal&logoColor=FFFFF0)](https://github.com/ryanduguid/planning-analytics-model/releases/latest)<br>
-[![rust](https://img.shields.io/badge/rust-1.99-66023C?labelColor=000000&style=flat-square)](https://www.rust-lang.org/)
-[![licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-66023C?labelColor=000000&style=flat-square)](LICENSE)
 
 An IBM Planning Analytics budgeting model published as source, with an offline
 engine that computes it and a test suite that asserts the answers.
