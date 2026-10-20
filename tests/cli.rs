@@ -412,22 +412,22 @@ enum Closed {
 }
 
 fn with_closed(closed: Closed, args: &[&str], unbuffered: bool) -> (Option<i32>, String) {
-    // The reading end is dropped before the spawn. Dropping the child's pipe
-    // after it started raced the child's first write, which then succeeded.
-    let (reader, writer) = std::io::pipe().unwrap();
-    drop(reader);
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"));
-    command.args(args);
-    match closed {
-        Closed::Out => command.stdout(writer).stderr(std::process::Stdio::piped()),
-        Closed::Err => command.stdout(std::process::Stdio::piped()).stderr(writer),
-    };
+    command
+        .args(args)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
     if unbuffered {
         command.env("PYTHONUNBUFFERED", "1");
     } else {
         command.env_remove("PYTHONUNBUFFERED");
     }
-    let output = command.output().unwrap();
+    let mut child = command.spawn().unwrap();
+    match closed {
+        Closed::Out => drop(child.stdout.take()),
+        Closed::Err => drop(child.stderr.take()),
+    }
+    let output = child.wait_with_output().unwrap();
     let kept = match closed {
         Closed::Out => output.stderr,
         Closed::Err => output.stdout,
