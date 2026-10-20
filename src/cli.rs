@@ -73,7 +73,7 @@ pub fn element_or_error(model: &Model, dimension: &str, name: &str, code: i32) -
     }
 }
 
-fn directory(argument: &str, what: &str) -> Result<PyPath> {
+pub(crate) fn directory(argument: &str, what: &str) -> Result<PyPath> {
     let path = PyPath::new(argument);
     if !path.is_dir() {
         return Err(Error::cli(
@@ -90,7 +90,7 @@ fn model_root(args: &Namespace) -> Result<PyPath> {
     directory(argument.unwrap_or(DEFAULT_MODEL_ROOT), "model")
 }
 
-fn load(root: &PyPath) -> Result<Model> {
+pub(crate) fn load(root: &PyPath) -> Result<Model> {
     match load_model(root) {
         Ok(model) => Ok(model),
         Err(Error::Model(m) | Error::Evaluation(m) | Error::RuleSyntax(m)) => {
@@ -111,7 +111,7 @@ fn load(root: &PyPath) -> Result<Model> {
     }
 }
 
-fn cube<'a>(model: &'a Model, name: &str) -> Result<&'a Cube> {
+pub(crate) fn cube<'a>(model: &'a Model, name: &str) -> Result<&'a Cube> {
     let key = py::casefold(name);
     if let Some(cube) = model.cubes.iter().find(|c| py::casefold(&c.name) == key) {
         return Ok(cube);
@@ -140,7 +140,7 @@ fn plural(n: usize, word: &str) -> String {
 }
 
 /// Stop calculate and report before they read a model that cannot be right.
-fn refuse_broken_model(model: &Model, streams: &mut Streams) -> Result<()> {
+pub(crate) fn refuse_broken_model(model: &Model, streams: &mut Streams) -> Result<()> {
     let errors: Vec<Finding> = validate_model(model)?
         .into_iter()
         .filter(|f| f.severity == ERROR)
@@ -161,7 +161,7 @@ fn refuse_broken_model(model: &Model, streams: &mut Streams) -> Result<()> {
     ))
 }
 
-fn calculation(error: Error) -> Error {
+pub(crate) fn calculation(error: Error) -> Error {
     match error {
         Error::Evaluation(m) => Error::cli(EXIT_CALCULATION, m),
         // Validation has already passed, so a model error at this point is a
@@ -171,7 +171,7 @@ fn calculation(error: Error) -> Error {
     }
 }
 
-fn evaluated(model: &Model, store: &CellStore) -> Result<CellStore> {
+pub(crate) fn evaluated(model: &Model, store: &CellStore) -> Result<CellStore> {
     evaluate::evaluate(model, store).map_err(calculation)
 }
 
@@ -286,7 +286,7 @@ fn calculate_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     Ok(EXIT_OK)
 }
 
-fn report_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
+pub(crate) fn report_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     let model = load(&model_root(args)?)?;
     refuse_broken_model(&model, streams)?;
     let data = directory(args.str("data").unwrap_or_default(), "data")?;
@@ -527,7 +527,7 @@ fn explanation_out(explanation: &Explanation) -> Result<Out> {
     ]))
 }
 
-fn explain_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
+pub(crate) fn explain_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     let model = load(&model_root(args)?)?;
     refuse_broken_model(&model, streams)?;
     let data = directory(args.str("data").unwrap_or_default(), "data")?;
@@ -914,21 +914,7 @@ pub fn main(argv: &[String], terminal: &Terminal, streams: &mut Streams) -> i32 
     };
     let (diagnostic, code) = match dispatch(&args, streams) {
         Ok(code) => return code,
-        Err(Error::Cli(code, message)) => (format!("pacioliscube: {message}"), code),
-        Err(Error::Evaluation(message)) => (format!("pacioliscube: {message}"), EXIT_CALCULATION),
-        Err(Error::Model(message)) => (format!("pacioliscube: {message}"), EXIT_INVALID_MODEL),
-        // A backstop: the places that read a file map their own failures.
-        Err(Error::Os(message) | Error::Decode(message)) => {
-            (format!("pacioliscube: {message}"), EXIT_USAGE)
-        }
-        Err(Error::RuleSyntax(message)) => (
-            uncaught(&Uncaught::new(
-                "pacioliscube.rules.RuleSyntaxError",
-                message,
-            )),
-            EXIT_USAGE,
-        ),
-        Err(Error::Uncaught(error)) => (uncaught(&error), EXIT_USAGE),
+        Err(error) => diagnostic(error),
     };
     match streams.eprint(&diagnostic) {
         Ok(()) => code,
@@ -938,6 +924,27 @@ pub fn main(argv: &[String], terminal: &Terminal, streams: &mut Streams) -> i32 
         // shutdown (exit 120). Either way the original code was lost.
         Err(_) if python_unbuffered() => EXIT_USAGE,
         Err(_) => EXIT_FLUSH_FAILED,
+    }
+}
+
+/// The message and exit code a failed command reports.
+pub(crate) fn diagnostic(error: Error) -> (String, i32) {
+    match error {
+        Error::Cli(code, message) => (format!("pacioliscube: {message}"), code),
+        Error::Evaluation(message) => (format!("pacioliscube: {message}"), EXIT_CALCULATION),
+        Error::Model(message) => (format!("pacioliscube: {message}"), EXIT_INVALID_MODEL),
+        // A backstop: the places that read a file map their own failures.
+        Error::Os(message) | Error::Decode(message) => {
+            (format!("pacioliscube: {message}"), EXIT_USAGE)
+        }
+        Error::RuleSyntax(message) => (
+            uncaught(&Uncaught::new(
+                "pacioliscube.rules.RuleSyntaxError",
+                message,
+            )),
+            EXIT_USAGE,
+        ),
+        Error::Uncaught(error) => (uncaught(&error), EXIT_USAGE),
     }
 }
 

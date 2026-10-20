@@ -15,6 +15,7 @@ named PaciolisCube until September 2026; the old URL redirects.
 - Install: clone the repository, then `cargo install --locked --path .`.
 - Check the model's structure: `pacioliscube validate model`.
 - Print a profit and loss from the shipped data: `pacioliscube report model --data examples --year FY2026-27 --version Budget`.
+- Query the model from an agent: `pacioliscube mcp model --data examples` is a read-only MCP server on stdio; see the README for Claude Code and Codex setup.
 
 ## Contents
 

@@ -28,6 +28,13 @@ schema `profit-and-loss.v1`); and the native comparison manifest's checks
 at main 99a3704, and the argparse section of the golden file was regenerated
 there.
 
+`pacioliscube mcp MODEL_DIR --data DIR` is new in the Rust binary: a read-only
+Model Context Protocol server on stdio, built on the official Rust SDK (rmcp),
+with tools to list cubes and dimensions, read a cube slice, explain rules and
+their feeders, explain cells and render the profit and loss. No tool takes a
+path. It is handled before the argument parser, so the top-level help text
+still matches 0.3.0.
+
 A differential harness ran 0.3.0 at revision 0dd9c53 and this binary over
 thousands of generated model trees, rules files, CSV inputs and command lines
 and found no difference beyond those listed. `tests/data/python_golden.json`

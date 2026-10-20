@@ -108,7 +108,7 @@ thread_local! {
 }
 
 /// Find which of a cube's dimensions holds an element, as a rule area does.
-fn dimension_of(model: &Model, cube: &Cube, element: &str) -> Result<usize> {
+pub(crate) fn dimension_of(model: &Model, cube: &Cube, element: &str) -> Result<usize> {
     #[cfg(test)]
     DIMENSION_OF_CALLS.with(|calls| calls.borrow_mut().push(element.to_string()));
     let mut matches = Vec::new();
