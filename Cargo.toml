@@ -27,7 +27,7 @@ path = "benches/evaluate.rs"
 harness = false
 
 [dependencies]
-num-bigint = "0.4.8"
+num-bigint = "0.5.1"
 num-integer = "0.1.46"
 num-traits = "0.2.19"
 
