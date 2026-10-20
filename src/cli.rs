@@ -902,8 +902,13 @@ pub fn main(argv: &[String], terminal: &Terminal, streams: &mut Streams) -> i32 
         } => {
             // argparse has already written its own message. It exits 0 for --help
             // and --version and 2 for a bad argument, so only the codes change here.
+            // argparse swallows a failed write; on buffered stderr the message
+            // then fails again at the shutdown flush (exit 120). stdout's own
+            // buffer gives that result through the final flush in main.
             let _ = streams.out.write_all(stdout.as_bytes());
-            let _ = streams.err.write_all(stderr.as_bytes());
+            if streams.err.write_all(stderr.as_bytes()).is_err() && !python_unbuffered() {
+                return EXIT_FLUSH_FAILED;
+            }
             return if code == 0 { EXIT_OK } else { EXIT_USAGE };
         }
     };
