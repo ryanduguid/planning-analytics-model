@@ -1447,4 +1447,158 @@ mod tests {
         );
         assert_eq!(wrap("abcdefghij", 4, "", ""), vec!["abcd", "efgh", "ij"]);
     }
+    fn terminal() -> Terminal {
+        Terminal {
+            columns: 80,
+            stdout_tty: false,
+            colour_stdout: false,
+            colour_stderr: false,
+        }
+    }
+
+    #[test]
+    fn namespace_accessors_fall_back_for_absent_or_other_shapes() {
+        let mut ns = Namespace::default();
+        ns.values
+            .insert("items", Value::List(vec!["a".to_string()]));
+        ns.values.insert("text", Value::Str("v".into()));
+        assert_eq!(ns.list("items"), &["a".to_string()]);
+        assert!(ns.list("absent").is_empty());
+        assert!(ns.list("text").is_empty());
+        assert_eq!(ns.str("text"), Some("v"));
+        assert_eq!(ns.str("items"), None);
+        assert_eq!(ns.str("absent"), None);
+    }
+
+    #[test]
+    fn wrap_honours_initial_and_subsequent_indents() {
+        assert_eq!(wrap("abcdef", 4, "xx", ""), vec!["xxab", "cdef"]);
+        assert_eq!(wrap("abcdefgh", 4, "", "xx"), vec!["abcd", "xxef", "xxgh"]);
+    }
+
+    #[test]
+    fn help_renders_every_nargs_usage_shape() {
+        let parser = Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![
+                Action::help(),
+                Action {
+                    options: vec!["--one"],
+                    dest: "one",
+                    nargs: Nargs::One,
+                    required: false,
+                    help: Some("one value"),
+                    metavar: Some("VALUE"),
+                    kind: Kind::Store,
+                },
+                Action {
+                    options: vec!["--maybe"],
+                    dest: "maybe",
+                    nargs: Nargs::Optional,
+                    required: false,
+                    help: Some("maybe a value"),
+                    metavar: Some("VALUE"),
+                    kind: Kind::Store,
+                },
+                Action {
+                    options: vec!["--rest"],
+                    dest: "rest",
+                    nargs: Nargs::Parser,
+                    required: false,
+                    help: Some("the rest"),
+                    metavar: Some("VALUE"),
+                    kind: Kind::Append,
+                },
+            ],
+            choices: vec![],
+        };
+        let help = parser.format_help(&terminal(), false);
+        assert!(help.contains("usage: planning"), "{help}");
+        assert!(help.contains("[--maybe [VALUE]]"), "{help}");
+        assert!(help.contains("[--rest VALUE ...]"), "{help}");
+    }
+
+    #[test]
+    fn invalid_choices_and_unknown_options_exit_with_usage() {
+        let parser = Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![Action::help()],
+            choices: vec![Choice {
+                name: "validate",
+                help: "validate the model",
+                parser: Parser {
+                    prog: "planning validate".into(),
+                    description: None,
+                    actions: vec![Action::help()],
+                    choices: vec![],
+                },
+            }],
+        };
+        match parser.parse_args(&["bogus".to_string()], &terminal()) {
+            Outcome::Exit { code, stderr, .. } => {
+                assert_eq!(code, 2);
+                assert!(stderr.contains("unrecognized arguments: bogus"), "{stderr}");
+            }
+            _ => panic!("an unknown positional must exit"),
+        }
+        let choosy = Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![Action {
+                options: vec!["--mode"],
+                dest: "mode",
+                nargs: Nargs::One,
+                required: false,
+                help: Some("a mode"),
+                metavar: Some("MODE"),
+                kind: Kind::Choice(&["fast", "slow"]),
+            }],
+            choices: vec![],
+        };
+        match choosy.parse_args(&["--mode".to_string(), "z".to_string()], &terminal()) {
+            Outcome::Exit { code, stderr, .. } => {
+                assert_eq!(code, 2);
+                assert!(stderr.contains("invalid choice: 'z'"), "{stderr}");
+            }
+            _ => panic!("an invalid choice must exit"),
+        }
+        match parser.parse_args(&["--nope".to_string()], &terminal()) {
+            Outcome::Exit { code, stderr, .. } => {
+                assert_eq!(code, 2);
+                assert!(stderr.contains("--nope"), "{stderr}");
+            }
+            _ => panic!("an unknown option must exit"),
+        }
+    }
+
+    #[test]
+    fn equals_forms_and_missing_values_parse_like_argparse() {
+        let parser = Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![Action {
+                options: vec!["--name"],
+                dest: "name",
+                nargs: Nargs::One,
+                required: false,
+                help: Some("a name"),
+                metavar: Some("NAME"),
+                kind: Kind::Store,
+            }],
+            choices: vec![],
+        };
+        match parser.parse_args(&["--name=bob".to_string()], &terminal()) {
+            Outcome::Parsed(ns) => assert_eq!(ns.str("name"), Some("bob")),
+            _ => panic!("the equals form must parse"),
+        }
+        match parser.parse_args(&["--name".to_string()], &terminal()) {
+            Outcome::Exit { code, stderr, .. } => {
+                assert_eq!(code, 2);
+                assert!(stderr.contains("expected one argument"), "{stderr}");
+            }
+            _ => panic!("a dangling option must exit"),
+        }
+    }
 }
