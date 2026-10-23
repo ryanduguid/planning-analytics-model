@@ -732,7 +732,19 @@ mod tests {
     }
 
     #[test]
-    fn a_lone_surrogate_escape_is_refused() {
+    fn a_paired_surrogate_escape_decodes_to_its_character() {
+        // json.loads('"😀"') == '\U0001F600' in CPython 3.15.
+        assert_eq!(
+            loads("\"\\ud83d\\ude00\""),
+            Ok(Json::Str("\u{1f600}".into()))
+        );
+    }
+
+    #[test]
+    fn unsupported_a_lone_surrogate_escape_is_refused_unlike_cpython() {
+        // Deliberately differs from CPython, whose json.loads('"\ud800"')
+        // returns '\ud800': a Rust String cannot hold a lone surrogate, so the
+        // port refuses the escape instead (see the shortcut in the scanner).
         assert_eq!(
             err("\"\\ud800\""),
             "Unpaired surrogate in \\uXXXX escape: line 1 column 2 (char 1)"
