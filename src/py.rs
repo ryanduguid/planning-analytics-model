@@ -666,6 +666,8 @@ mod tests {
             repr_str("\u{1}\u{85}\u{e9}\u{ffff}\u{1f600}"),
             "'\\x01\\x85\u{e9}\\uffff\u{1f600}'"
         );
+        // U+E0001 LANGUAGE TAG is a format character, so not printable.
+        assert_eq!(repr_str("\u{e0001}"), "'\\U000e0001'");
         assert_eq!(float_repr(1e16), "1e+16");
         assert_eq!(float_repr(0.1), "0.1");
         assert_eq!(float_repr(-0.0), "-0.0");
@@ -682,6 +684,27 @@ mod tests {
         assert_eq!(
             parse_int(&"9".repeat(4301)).unwrap_err(),
             int_digits_error(4301)
+        );
+        assert_eq!(
+            parse_int("1\u{e9}").unwrap_err(),
+            "invalid literal for int() with base 10: '1\u{e9}'"
+        );
+    }
+
+    #[test]
+    fn os_errors_render_as_python_str_does() {
+        assert_eq!(
+            oserror_str(&io::Error::other("no code"), "f.csv", OsStyle::Errno),
+            "no code"
+        );
+        assert_eq!(strip_os_suffix("Access is denied."), "Access is denied.");
+        assert_eq!(
+            stream_oserror(&io::Error::from_raw_os_error(22)),
+            ("OSError", "[Errno 22] Invalid argument".to_string())
+        );
+        assert_eq!(
+            stream_oserror(&io::Error::other("closed")),
+            ("OSError", "closed".to_string())
         );
     }
 

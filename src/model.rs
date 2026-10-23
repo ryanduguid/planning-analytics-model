@@ -827,5 +827,40 @@ mod tests {
         assert_eq!(dimension_id("Dimensions('')"), None);
         assert_eq!(dimension_id("Dimensions('a'b')"), None);
         assert_eq!(dimension_id("Dimensions('a')x"), None);
+        // A quote left unpaired at the end: the pattern needs `''` or a non-quote.
+        assert_eq!(dimension_id("Dimensions('a'')"), None);
+    }
+
+    #[test]
+    fn parameters_iterate_as_tuple_did() {
+        assert_eq!(as_tuple(None).unwrap(), Vec::<Json>::new());
+        let object = Json::Object(vec![("pYear".into(), Json::Int(1.into()))]);
+        assert_eq!(
+            as_tuple(Some(&object)).unwrap(),
+            [Json::Str("pYear".into())]
+        );
+        assert_eq!(
+            as_tuple(Some(&Json::Str("ab".into()))).unwrap(),
+            [Json::Str("a".into()), Json::Str("b".into())]
+        );
+        assert_eq!(
+            as_tuple(Some(&Json::Bool(true))).unwrap_err(),
+            Error::Uncaught(Uncaught::new("TypeError", "'bool' object is not iterable"))
+        );
+    }
+
+    #[test]
+    fn a_manifest_without_a_name_takes_the_folder_name() {
+        // `manifest.get("Name") or root.name`: an empty name is falsy.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("planning");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::write(
+            root.join("tm1project.json"),
+            r#"{"Name": "", "Objects": {}}"#,
+        )
+        .unwrap();
+        let model = load_model(&PyPath::new(&root.to_string_lossy())).unwrap();
+        assert_eq!(model.name, Json::Str("planning".into()));
     }
 }

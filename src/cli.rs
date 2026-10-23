@@ -539,66 +539,6 @@ fn explain_command(args: &Namespace, streams: &mut Streams) -> Result<i32> {
     Ok(EXIT_OK)
 }
 
-/// `item == other` for two evidence items as Python compared their dicts.
-fn items_equal(a: &Item, b: &Item) -> bool {
-    match (a, b) {
-        (
-            Item::Input {
-                cell: c1,
-                value: v1,
-            },
-            Item::Input {
-                cell: c2,
-                value: v2,
-            },
-        ) => c1 == c2 && v1 == v2,
-        (
-            Item::Step {
-                operator: o1,
-                left: l1,
-                right: r1,
-                result: x1,
-            },
-            Item::Step {
-                operator: o2,
-                left: l2,
-                right: r2,
-                result: x2,
-            },
-        ) => o1 == o2 && l1 == l2 && r1 == r2 && x1 == x2,
-        (
-            Item::Comparison {
-                operator: o1,
-                left: l1,
-                right: r1,
-                result: x1,
-            },
-            Item::Comparison {
-                operator: o2,
-                left: l2,
-                right: r2,
-                result: x2,
-            },
-        ) => o1 == o2 && l1 == l2 && r1 == r2 && x1 == x2,
-        (Item::Branch { then: t1 }, Item::Branch { then: t2 }) => t1 == t2,
-        (
-            Item::Contribution {
-                cell: c1,
-                value: v1,
-                weight: w1,
-                contribution: x1,
-            },
-            Item::Contribution {
-                cell: c2,
-                value: v2,
-                weight: w2,
-                contribution: x2,
-            },
-        ) => c1 == c2 && v1 == v2 && w1 == w2 && x1 == x2,
-        _ => false,
-    }
-}
-
 /// `before == after` for two evidence dicts: key order does not matter.
 fn evidence_equal(a: &Evidence, b: &Evidence) -> bool {
     let lists_equal = a.lists.len() == b.lists.len()
@@ -606,7 +546,7 @@ fn evidence_equal(a: &Evidence, b: &Evidence) -> bool {
             b.lists.iter().any(|(other_field, other)| {
                 field == other_field
                     && items.len() == other.len()
-                    && items.iter().zip(other).all(|(x, y)| items_equal(x, y))
+                    && items.iter().zip(other).all(|(x, y)| x == y)
             })
         });
     a.cube == b.cube

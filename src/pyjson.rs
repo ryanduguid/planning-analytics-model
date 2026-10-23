@@ -301,9 +301,8 @@ pub fn loads(text: &str) -> Result<Json, DecodeError> {
                     idx = skip(idx);
                     if idx < len && s[idx] == ']' {
                         idx += 1;
-                        let Some(Frame::Array(items)) = stack.pop() else {
-                            unreachable!()
-                        };
+                        let items = std::mem::take(items);
+                        stack.pop();
                         used -= ARRAY_COST;
                         value = Json::Array(items);
                         continue;
@@ -332,9 +331,8 @@ pub fn loads(text: &str) -> Result<Json, DecodeError> {
                     idx = skip(idx);
                     if idx < len && s[idx] == '}' {
                         idx += 1;
-                        let Some(Frame::Object(pairs, _)) = stack.pop() else {
-                            unreachable!()
-                        };
+                        let pairs = std::mem::take(pairs);
+                        stack.pop();
                         used -= OBJECT_COST;
                         value = Json::Object(pairs);
                         continue;
@@ -662,11 +660,10 @@ mod tests {
         let arrays = |n: usize| format!("{{\"Name\": {}{}}}", "[".repeat(n), "]".repeat(n));
         let objects =
             |n: usize| format!("{{\"Name\": {}1{}}}", "{\"a\": ".repeat(n), "}".repeat(n));
-        let (array_limit, object_limit) = if cfg!(windows) {
-            (13_855, 15_587)
-        } else {
-            (65_208, 65_208)
-        };
+        #[cfg(windows)]
+        let (array_limit, object_limit) = (13_855, 15_587);
+        #[cfg(not(windows))]
+        let (array_limit, object_limit) = (65_208, 65_208);
         assert!(loads(&arrays(array_limit)).is_ok());
         assert_eq!(loads(&arrays(array_limit + 1)), Err(DecodeError::TooDeep));
         assert!(loads(&objects(object_limit)).is_ok());
@@ -693,6 +690,52 @@ mod tests {
         assert_eq!(
             dumps(&value),
             "{\n  \"b\": [\n    1,\n    \"\\u00e9\\n\\ud83d\\ude00\"\n  ],\n  \"a\": {},\n  \"c\": [],\n  \"d\": null\n}"
+        );
+    }
+
+    #[test]
+    fn dumps_writes_booleans_and_short_escapes() {
+        let value = Out::List(vec![
+            Out::Bool(true),
+            Out::Bool(false),
+            Out::Str("\x08\x0c".into()),
+        ]);
+        assert_eq!(dumps(&value), "[\n  true,\n  false,\n  \"\\b\\f\"\n]");
+    }
+
+    #[test]
+    fn accessors_answer_as_the_python_object_would() {
+        let value =
+            loads("{\"s\": \"x\", \"t\": true, \"f\": false, \"r\": 0.0, \"o\": {}}").unwrap();
+        assert_eq!(value.get("s").and_then(Json::as_str), Some("x"));
+        assert_eq!(value.get("t").and_then(Json::as_str), None);
+        assert_eq!(value.get("s").unwrap().get("s"), None);
+        assert_eq!(value.get("t").unwrap().type_name(), "bool");
+        assert_eq!(value.get("r").unwrap().type_name(), "float");
+        assert_eq!(value.get("o").unwrap().type_name(), "dict");
+        assert_eq!(value.get("f").unwrap().repr(), "False");
+        assert!(!value.get("r").unwrap().truthy());
+        assert!(Json::Float(0.5).truthy());
+    }
+
+    #[test]
+    fn an_exponent_without_digits_is_left_unread() {
+        // json.loads("[1e]") stops the number before the "e".
+        assert_eq!(
+            err("[1e]"),
+            "Expecting ',' delimiter: line 1 column 3 (char 2)"
+        );
+        assert_eq!(
+            err("[1e+]"),
+            "Expecting ',' delimiter: line 1 column 3 (char 2)"
+        );
+    }
+
+    #[test]
+    fn a_lone_surrogate_escape_is_refused() {
+        assert_eq!(
+            err("\"\\ud800\""),
+            "Unpaired surrogate in \\uXXXX escape: line 1 column 2 (char 1)"
         );
     }
 }

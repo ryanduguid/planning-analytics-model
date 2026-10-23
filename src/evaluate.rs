@@ -227,7 +227,8 @@ impl RuleIndex {
 }
 
 /// One item of calculation evidence, in the order Python's keyword arguments gave its fields.
-#[derive(Clone, Debug)]
+/// Two items are equal as Python's dicts of them were: same kind, equal fields.
+#[derive(Clone, Debug, PartialEq)]
 pub enum Item {
     Input {
         cell: String,
@@ -1015,5 +1016,69 @@ mod tests {
             );
         }
         assert_eq!(calls(), ["STRASSE"]);
+    }
+
+    #[test]
+    fn the_store_counts_cells_as_a_dict_keyed_without_case() {
+        let mut store = CellStore::new();
+        assert!(store.is_empty());
+        store.set(
+            "Sales",
+            &["Red".into(), "Units".into()],
+            Decimal::from_int(1),
+        );
+        store.set(
+            "SALES",
+            &["red".into(), "units".into()],
+            Decimal::from_int(2),
+        );
+        store.set(
+            "Sales",
+            &["Blue".into(), "Units".into()],
+            Decimal::from_int(3),
+        );
+        assert_eq!(store.len(), 2);
+        assert!(!store.is_empty());
+    }
+
+    #[test]
+    fn an_area_may_name_the_same_element_twice() {
+        // A dict assignment: the second mention of Red agrees with the first.
+        let dir = tempfile::tempdir().unwrap();
+        let model = model(dir.path(), MEASURES, "['Red', 'red', 'Amount'] = N: 5;");
+        let store = evaluate(&model, &CellStore::new()).unwrap();
+        assert_eq!(
+            store
+                .get("Sales", &["Red".into(), "Amount".into()])
+                .to_sci_string(),
+            "5"
+        );
+        assert!(!store.has("Sales", &["Blue".into(), "Amount".into()]));
+    }
+
+    fn product(choices: &[Vec<String>]) -> Vec<Vec<String>> {
+        let mut cells = Vec::new();
+        for_each_cell(choices, |cell| {
+            cells.push(cell.to_vec());
+            Ok(())
+        })
+        .unwrap();
+        cells
+    }
+
+    #[test]
+    fn cells_follow_itertools_product() {
+        let names = |n: &[&str]| n.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            product(&[names(&["a", "b"]), names(&["x", "y"])]),
+            [
+                names(&["a", "x"]),
+                names(&["a", "y"]),
+                names(&["b", "x"]),
+                names(&["b", "y"])
+            ]
+        );
+        // A dimension without leaves gives no cells at all.
+        assert!(product(&[names(&["a"]), Vec::new()]).is_empty());
     }
 }

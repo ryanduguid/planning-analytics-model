@@ -720,4 +720,59 @@ mod tests {
         assert_eq!(d("0.000001").to_sci_string(), "0.000001");
         assert_eq!(d("0.0000001").to_sci_string(), "1E-7");
     }
+
+    #[test]
+    fn refuses_what_cpython_refuses() {
+        // Decimal("1\u20032"): an interior em space is not a digit separator.
+        assert_eq!(
+            Decimal::parse("1\u{2003}2").unwrap_err(),
+            Signal::InvalidOperation
+        );
+        assert_eq!(
+            Decimal::parse("nanx").unwrap_err(),
+            Signal::InvalidOperation
+        );
+        // An exponent of 26 significant digits is far beyond libmpdec's MAX_EMAX.
+        let huge = format!("1E{}", "9".repeat(26));
+        assert_eq!(Decimal::parse(&huge).unwrap_err(), Signal::InvalidOperation);
+        // quantize(Decimal("1E1000000")): the exponent is above Emax.
+        assert_eq!(
+            d("1").quantize(EMAX + 1, Rounding::HalfEven),
+            Err(Signal::InvalidOperation)
+        );
+    }
+
+    #[test]
+    fn special_values_format_as_their_names() {
+        let fixed = |text: &str| d(text).to_fixed_string().unwrap();
+        assert_eq!(fixed("-Infinity"), "-Infinity");
+        assert_eq!(fixed("inf"), "Infinity");
+        assert_eq!(fixed("NaN"), "NaN");
+        assert_eq!(fixed("-snan12"), "-sNaN12");
+    }
+
+    #[test]
+    fn a_fixed_string_past_a_gibibyte_of_digits_is_out_of_memory() {
+        // 1E+2000000000 in "f" form would be 2,000,000,001 characters.
+        assert_eq!(d("1E+2000000000").to_fixed_string(), None);
+        assert_eq!(d("1E+1000").to_fixed_string().unwrap().len(), 1001);
+    }
+
+    #[test]
+    fn rescaling_zero_keeps_only_the_new_exponent() {
+        // _pydecimal's _rescale: `if not self: return _dec_from_triple(sign, '0', exp)`.
+        let zero = rescale(&d("-0.000"), 2, Rounding::HalfEven);
+        assert_eq!(zero.to_sci_string(), "-0E+2");
+    }
+
+    #[test]
+    fn rounding_up_into_a_new_digit_can_overflow() {
+        // 10**1000000 - 1 has adjusted exponent 999999, Emax itself; negating it
+        // rounds to 28 nines plus one, which carries to 1E+1000000, past Emax.
+        let nines = d(&"9".repeat(1_000_000));
+        assert_eq!(nines.neg(), Err(Signal::Overflow));
+        // One digit fewer rounds to 1.000...E+999999, which still fits.
+        let fewer = d(&"9".repeat(999_999));
+        assert_eq!(sci(fewer.neg()), "-1.000000000000000000000000000E+999999");
+    }
 }

@@ -122,6 +122,19 @@ pub fn join(path: &str, p: &str) -> String {
     format!("{drive}{root}{tail}")
 }
 
+/// `PureWindowsPath`'s parse of a UNC drive given without its root: a
+/// `\\server\share` drive still takes the `\` root.
+#[cfg(windows)]
+fn unc_root(drv: &str, root: String) -> String {
+    if root.is_empty() && drv.starts_with('\\') && !drv.ends_with('\\') {
+        let parts: Vec<&str> = drv.split('\\').collect();
+        if (parts.len() == 4 && !"?.".contains(parts[2])) || parts.len() == 6 {
+            return "\\".into();
+        }
+    }
+    root
+}
+
 /// `os.path.join(a, b)` for the platform.
 #[cfg(not(windows))]
 pub fn join(path: &str, p: &str) -> String {
@@ -145,18 +158,13 @@ impl PyPath {
                 tail: Vec::new(),
             };
         }
-        let path = if cfg!(windows) {
-            text.replace('/', "\\")
-        } else {
-            text.to_string()
-        };
-        let (drv, mut root, rel) = splitroot(&path);
-        if cfg!(windows) && root.is_empty() && drv.starts_with('\\') && !drv.ends_with('\\') {
-            let parts: Vec<&str> = drv.split('\\').collect();
-            if (parts.len() == 4 && !"?.".contains(parts[2])) || parts.len() == 6 {
-                root = "\\".into();
-            }
-        }
+        #[cfg(windows)]
+        let path = text.replace('/', "\\");
+        #[cfg(not(windows))]
+        let path = text.to_string();
+        let (drv, root, rel) = splitroot(&path);
+        #[cfg(windows)]
+        let root = unc_root(&drv, root);
         let tail = rel
             .split(SEP)
             .filter(|x| !x.is_empty() && *x != ".")
@@ -184,7 +192,8 @@ impl PyPath {
         if self.tail.is_empty() {
             return ".".into();
         }
-        if cfg!(windows) && !splitroot(&self.tail[0]).0.is_empty() {
+        #[cfg(windows)]
+        if !splitroot(&self.tail[0]).0.is_empty() {
             return format!(".{sep}{}", self.tail.join(&sep));
         }
         self.tail.join(&sep)
@@ -236,11 +245,10 @@ impl PyPath {
     }
 
     fn normcase(&self) -> String {
-        if cfg!(windows) {
-            py::lower(&self.display())
-        } else {
-            self.display()
-        }
+        let display = self.display();
+        #[cfg(windows)]
+        let display = py::lower(&display);
+        display
     }
 
     /// `path.is_relative_to(other)`.
@@ -353,32 +361,10 @@ fn cwd() -> Result<String, Uncaught> {
     }
 }
 
-#[cfg(not(windows))]
-fn normpath(path: &str) -> String {
-    if path.is_empty() {
-        return ".".into();
-    }
-    let (_, initial, rest) = splitroot(path);
-    let mut comps: Vec<&str> = Vec::new();
-    for comp in rest.split('/') {
-        if comp.is_empty() || comp == "." {
-            continue;
-        }
-        if comp != ".." || (initial.is_empty() && comps.is_empty()) || comps.last() == Some(&"..") {
-            comps.push(comp);
-        } else if !comps.is_empty() {
-            comps.pop();
-        }
-    }
-    let out = format!("{initial}{}", comps.join("/"));
-    if out.is_empty() { ".".into() } else { out }
-}
-
 /// `posixpath.realpath(path)`, non-strict.
 #[cfg(not(windows))]
 pub fn realpath(filename: &str) -> Result<String, Uncaught> {
     use std::collections::HashMap;
-    let _ = normpath;
     enum Part {
         Name(String),
         Resolved,
@@ -678,5 +664,45 @@ mod tests {
         assert_eq!(join("/m", "/x"), "/x");
         assert!(!PyPath::new("/A/b").is_relative_to(&PyPath::new("/a")));
         assert_eq!(realpath("/no/such/../path").unwrap(), "/no/path");
+        // ".." at the root stays at the root.
+        assert_eq!(realpath("/../no-such-path").unwrap(), "/no-such-path");
+        // os.lstat refuses a NUL in the path with ValueError.
+        assert_eq!(realpath("/a\0b").unwrap_err().name, "ValueError");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn realpath_follows_links_as_posixpath_does() {
+        let tmp = tempfile::tempdir().unwrap();
+        let base = realpath(&tmp.path().to_string_lossy()).unwrap();
+        std::fs::create_dir(tmp.path().join("real")).unwrap();
+        std::os::unix::fs::symlink("real", tmp.path().join("link")).unwrap();
+        std::os::unix::fs::symlink("loop", tmp.path().join("loop")).unwrap();
+        // The link resolves to its target, and a second pass through it is
+        // answered from what the first pass found.
+        assert_eq!(
+            realpath(&format!("{base}/link/x")).unwrap(),
+            format!("{base}/real/x")
+        );
+        assert_eq!(
+            realpath(&format!("{base}/link/../link/x")).unwrap(),
+            format!("{base}/real/x")
+        );
+        // posixpath.realpath(strict=False) leaves a link that loops in place.
+        assert_eq!(
+            realpath(&format!("{base}/loop/x")).unwrap(),
+            format!("{base}/loop/x")
+        );
+    }
+
+    #[test]
+    fn a_path_relative_to_itself_is_dot() {
+        let path = PyPath::new("model/cubes");
+        assert_eq!(path.relative_to_posix(&path).as_deref(), Some("."));
+        assert_eq!(
+            path.relative_to_posix(&PyPath::new("model")).as_deref(),
+            Some("cubes")
+        );
+        assert_eq!(path.relative_to_posix(&PyPath::new("data")), None);
     }
 }

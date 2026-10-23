@@ -6,7 +6,7 @@ mod common;
 use std::path::Path;
 
 use common::*;
-use pacioliscube::error::Error;
+use pacioliscube::error::{Error, Uncaught};
 use pacioliscube::evaluate::{CellStore, consolidate_many, evaluate};
 use pacioliscube::model::{Model, load_model};
 use pacioliscube::pypath::PyPath;
@@ -552,4 +552,103 @@ fn a_cell_reference_with_an_empty_element_is_a_usage_error() {
     ]);
     assert_eq!(code, 1);
     assert!(err.contains("has an empty element name"));
+}
+
+#[test]
+fn a_parameter_that_is_not_an_object_ends_in_an_attribute_error() {
+    // tuple("ab") gives two strings, and Python's parameter.get("Name") then
+    // raised AttributeError, which nothing caught.
+    let tmp = tempdir();
+    let model = build(
+        tmp.path(),
+        &Spec {
+            processes: "#Region Prolog\n#EndRegion\n".into(),
+            parameters: r#""ab""#.into(),
+            ..Spec::default()
+        },
+    );
+    assert_eq!(
+        validate_model(&model).unwrap_err(),
+        Error::Uncaught(Uncaught::new(
+            "AttributeError",
+            "'str' object has no attribute 'get'"
+        ))
+    );
+}
+
+/// Colour links two hierarchies and neither is named Colour, so it has no
+/// default hierarchy and every lookup of an element in it fails.
+fn without_default_hierarchy(root: &Path, rules: &str) -> Model {
+    write_model(root, &Spec::rules(rules));
+    write(
+        &root.join("dimensions").join("Colour.json"),
+        r#"{"Name": "Colour", "Hierarchies@Code.links": ["Colour.hierarchies/A.json", "Colour.hierarchies/B.json"]}"#,
+    );
+    for name in ["A", "B"] {
+        write(
+            &root
+                .join("dimensions")
+                .join("Colour.hierarchies")
+                .join(format!("{name}.json")),
+            &format!(r#"{{"Name": "{name}", "Elements": [{COLOUR_ELEMENTS}], "Edges": []}}"#),
+        );
+    }
+    load_model(&PyPath::new(&s(root))).unwrap()
+}
+
+#[test]
+fn every_element_check_stops_at_a_dimension_without_a_default_hierarchy() {
+    // The rule's area, a reference in its expression, a feeder's area and a
+    // feeder's target each look the element up in Colour first.
+    for rules in [
+        "['Amount'] = N: 1;",
+        "[] = N: ['Amount'];",
+        "FEEDERS;\n['Units'] => ['Amount'];",
+        "FEEDERS;\n[] => ['Amount'];",
+    ] {
+        let tmp = tempdir();
+        let model = without_default_hierarchy(tmp.path(), rules);
+        let message = validate_model(&model).unwrap_err().message();
+        assert!(
+            message.ends_with("Colour.json: no hierarchy named 'Colour' to use as the default"),
+            "{rules}: {message}"
+        );
+    }
+    let tmp = tempdir();
+    without_default_hierarchy(tmp.path(), "['Amount'] = N: 1;");
+    let (code, out, err) = run(&["validate", &s(tmp.path())]);
+    assert_eq!((code, out.as_str()), (2, ""));
+    assert!(
+        err.starts_with("pacioliscube: ")
+            && err.ends_with("Colour.json: no hierarchy named 'Colour' to use as the default\n"),
+        "{err}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_folder_the_tree_walk_cannot_open_is_passed_over() {
+    use std::os::unix::fs::PermissionsExt;
+    // pathlib's rglob skips a directory it cannot list, so the file inside
+    // it is never seen as a file the manifest leaves out.
+    let tmp = tempdir();
+    write_model(
+        tmp.path(),
+        &Spec {
+            extra_files: vec![("notes/draft.txt".into(), "draft".into())],
+            ..Spec::default()
+        },
+    );
+    let notes = tmp.path().join("notes");
+    std::fs::set_permissions(&notes, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::read_dir(&notes).is_ok() {
+        return; // running as root: the permission cannot be refused here
+    }
+    let model = load_model(&PyPath::new(&s(tmp.path()))).unwrap();
+    let findings = validate_model(&model).unwrap();
+    std::fs::set_permissions(&notes, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(
+        findings.iter().all(|f| !f.location.contains("draft.txt")),
+        "{findings:?}"
+    );
 }

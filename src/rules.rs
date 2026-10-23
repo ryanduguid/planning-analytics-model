@@ -715,12 +715,50 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    fn errors_name_the_kind_of_token_wanted() {
+        assert_eq!(
+            error("['A', 1] = 1;"),
+            "R line 1: expected 'string' but found '1'"
+        );
+        assert_eq!(
+            error("['A'] = DB('C', !'D');"),
+            "R line 1: expected 'name' but found 'D'"
+        );
+        assert_eq!(
+            error("['A'] = "),
+            "R line 1: unexpected 'end of file' in an expression"
+        );
+        // An empty quoted name has empty text, which Python's `token.text or
+        // "end of file"` shows as the end of the file.
+        assert_eq!(
+            error("'' = 1;"),
+            "R line 1: a statement must start with an area in square brackets, found 'end of file'"
+        );
+        assert_eq!(
+            RuleSyntaxError("R line 1: x".into()).to_string(),
+            "R line 1: x"
+        );
+    }
+
+    #[test]
+    fn negating_a_number_past_emax_raises_overflow() {
+        // -Decimal("1" + "0" * 1000000) has adjusted exponent 1000000, above Emax.
+        let text = format!("['A'] = -1{};", "0".repeat(1_000_000));
+        assert_eq!(
+            parse_rules(&text, "R").unwrap_err(),
+            Error::Uncaught(Uncaught::new(
+                "decimal.Overflow",
+                "[<class 'decimal.Overflow'>]"
+            ))
+        );
+    }
+
     fn nesting_limits() {
-        let (parentheses, unary, mixed) = if cfg!(windows) {
-            (328, 983, 246)
-        } else {
-            (329, 985, 247)
-        };
+        #[cfg(windows)]
+        let (parentheses, unary, mixed) = (328, 983, 246);
+        #[cfg(not(windows))]
+        let (parentheses, unary, mixed) = (329, 985, 247);
         let nested = |n: usize| format!("['A'] = N: {}1{};", "(".repeat(n), ")".repeat(n));
         assert!(parse_rules(&nested(parentheses), "R").is_ok());
         assert_eq!(

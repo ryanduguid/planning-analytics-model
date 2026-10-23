@@ -107,6 +107,7 @@ impl Namespace {
 }
 
 /// What parsing did: a namespace, or `SystemExit` after printing.
+#[derive(Debug)]
 pub enum Outcome {
     Parsed(Namespace),
     Exit {
@@ -241,18 +242,16 @@ pub fn wrap(text: &str, width: i64, initial: &str, subsequent: &str) -> Vec<Stri
                 break;
             }
         }
-        // _handle_long_word: split a word too long for any line, or take it
-        // whole when nothing fits beside it.
+        // _handle_long_word: split a word too long for any line. Its other
+        // branch, taking the word whole onto an empty line, is never reached
+        // with break_long_words on: an empty line leaves space_left > 0.
         let space_left = if width < 1 { 1 } else { width - current_len };
-        let starts_empty = current.is_empty();
-        if let Some(chunk) = chunks.pop_if(|c| len(c) > width && (space_left > 0 || starts_empty)) {
-            if space_left > 0 {
-                let split = py::prefix_chars(&chunk, space_left as usize).to_string();
-                chunks.push(chunk[split.len()..].to_string());
-                current.push(split);
-            } else {
-                current.push(chunk);
-            }
+        if space_left > 0
+            && let Some(chunk) = chunks.pop_if(|c| len(c) > width)
+        {
+            let split = py::prefix_chars(&chunk, space_left as usize).to_string();
+            chunks.push(chunk[split.len()..].to_string());
+            current.push(split);
         }
         if current.last().is_some_and(|c| c.trim().is_empty()) {
             current.pop();
@@ -400,11 +399,12 @@ impl Formatter<'_> {
                     let mut lines = get_lines(&with_prog, &indent, Some(prefix));
                     lines.extend(get_lines(pos_parts, &indent, None));
                     lines
-                } else if !pos_parts.is_empty() {
+                } else {
+                    // argparse has a separate `[prog]` branch for no parts at
+                    // all, which this gives too. It cannot be reached: a usage
+                    // of prog alone that is too wide fails the test above.
                     with_prog.extend(pos_parts.iter().cloned());
                     get_lines(&with_prog, &indent, Some(prefix))
-                } else {
-                    vec![prog.clone()]
                 }
             } else {
                 let indent = spaces(len(prefix));
@@ -678,11 +678,8 @@ fn invalid_choice(value: &str, names: &[&str]) -> String {
     }
 }
 
-fn argument_error(action: Option<&Action>, message: &str) -> Stop {
-    match action {
-        Some(action) => Stop::Error(format!("argument {}: {message}", action_name(action))),
-        None => Stop::Error(message.to_string()),
-    }
+fn argument_error(action: &Action, message: &str) -> Stop {
+    Stop::Error(format!("argument {}: {message}", action_name(action)))
 }
 
 impl Parser {
@@ -719,10 +716,10 @@ impl Parser {
         }
         let mut chars = arg.chars();
         chars.next();
+        // The argument has at least two characters here.
         let negative = match chars.next() {
             Some('.') => chars.next().is_some_and(py::is_decimal),
-            Some(c) => py::is_decimal(c),
-            None => false,
+            second => second.is_some_and(py::is_decimal),
         };
         if negative {
             return Ok(None);
@@ -988,7 +985,7 @@ impl Parser {
                         || explicit_arg.starts_with('-')
                     {
                         return Err(argument_error(
-                            Some(current),
+                            current,
                             &format!("ignored explicit argument {}", py::repr_str(&explicit_arg)),
                         ));
                     }
@@ -1023,7 +1020,7 @@ impl Parser {
                     break;
                 } else {
                     return Err(argument_error(
-                        Some(current),
+                        current,
                         &format!("ignored explicit argument {}", py::repr_str(&explicit_arg)),
                     ));
                 }
@@ -1035,7 +1032,7 @@ impl Parser {
                         if pattern.get(next) == Some(&'A') {
                             1
                         } else {
-                            return Err(argument_error(Some(current), "expected one argument"));
+                            return Err(argument_error(current, "expected one argument"));
                         }
                     }
                     Nargs::Optional => usize::from(pattern.get(next) == Some(&'A')),
@@ -1079,9 +1076,9 @@ impl Parser {
                 }))
             }
             Kind::Store => {
-                let value = match (action.nargs, values.as_slice()) {
-                    (Nargs::Optional, []) => Value::None,
-                    (_, [one]) => Value::Str(one.clone()),
+                // One value is stored as given; `nargs="?"` with none stores None.
+                let value = match values.as_slice() {
+                    [one] => Value::Str(one.clone()),
                     _ => Value::None,
                 };
                 namespace.values.insert(action.dest, value);
@@ -1099,10 +1096,7 @@ impl Parser {
             Kind::Choice(choices) => {
                 let value = &values[0];
                 if !choices.contains(&value.as_str()) {
-                    return Err(argument_error(
-                        Some(action),
-                        &invalid_choice(value, choices),
-                    ));
+                    return Err(argument_error(action, &invalid_choice(value, choices)));
                 }
                 namespace
                     .values
@@ -1113,7 +1107,7 @@ impl Parser {
                 let name = &values[0];
                 let Some(choice) = self.choices.iter().find(|c| c.name == name.as_str()) else {
                     let names: Vec<&str> = self.choices.iter().map(|c| c.name).collect();
-                    return Err(argument_error(Some(action), &invalid_choice(name, &names)));
+                    return Err(argument_error(action, &invalid_choice(name, &names)));
                 };
                 namespace.command = Some(name.clone());
                 match choice.parser.parse_known(&values[1..], terminal) {
@@ -1536,13 +1530,12 @@ mod tests {
                 },
             }],
         };
-        match parser.parse_args(&["bogus".to_string()], &terminal()) {
-            Outcome::Exit { code, stderr, .. } => {
-                assert_eq!(code, 2);
-                assert!(stderr.contains("unrecognized arguments: bogus"), "{stderr}");
-            }
-            _ => panic!("an unknown positional must exit"),
-        }
+        let outcome = parser.parse_args(&["bogus".to_string()], &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Exit { code: 2, stderr, .. }
+                if stderr.contains("unrecognized arguments: bogus")),
+            "{outcome:?}"
+        );
         let choosy = Parser {
             prog: "planning".into(),
             description: None,
@@ -1557,20 +1550,17 @@ mod tests {
             }],
             choices: vec![],
         };
-        match choosy.parse_args(&["--mode".to_string(), "z".to_string()], &terminal()) {
-            Outcome::Exit { code, stderr, .. } => {
-                assert_eq!(code, 2);
-                assert!(stderr.contains("invalid choice: 'z'"), "{stderr}");
-            }
-            _ => panic!("an invalid choice must exit"),
-        }
-        match parser.parse_args(&["--nope".to_string()], &terminal()) {
-            Outcome::Exit { code, stderr, .. } => {
-                assert_eq!(code, 2);
-                assert!(stderr.contains("--nope"), "{stderr}");
-            }
-            _ => panic!("an unknown option must exit"),
-        }
+        let outcome = choosy.parse_args(&["--mode".to_string(), "z".to_string()], &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Exit { code: 2, stderr, .. }
+                if stderr.contains("invalid choice: 'z'")),
+            "{outcome:?}"
+        );
+        let outcome = parser.parse_args(&["--nope".to_string()], &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Exit { code: 2, stderr, .. } if stderr.contains("--nope")),
+            "{outcome:?}"
+        );
     }
 
     #[test]
@@ -1589,16 +1579,186 @@ mod tests {
             }],
             choices: vec![],
         };
-        match parser.parse_args(&["--name=bob".to_string()], &terminal()) {
-            Outcome::Parsed(ns) => assert_eq!(ns.str("name"), Some("bob")),
-            _ => panic!("the equals form must parse"),
+        let outcome = parser.parse_args(&["--name=bob".to_string()], &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Parsed(ns) if ns.str("name") == Some("bob")),
+            "{outcome:?}"
+        );
+        let outcome = parser.parse_args(&["--name".to_string()], &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Exit { code: 2, stderr, .. }
+                if stderr.contains("expected one argument")),
+            "{outcome:?}"
+        );
+    }
+
+    fn args(items: &[&str]) -> Vec<String> {
+        items.iter().map(|a| a.to_string()).collect()
+    }
+
+    /// Two positionals, the first optional, with metavars long enough that the
+    /// usage line wraps; argparse 3.15 with COLUMNS=80 printed the usage below.
+    fn positionals_only() -> Parser {
+        Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![
+                Action {
+                    options: vec![],
+                    dest: "maybe",
+                    nargs: Nargs::Optional,
+                    required: false,
+                    help: None,
+                    metavar: Some("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+                    kind: Kind::Store,
+                },
+                Action {
+                    options: vec![],
+                    dest: "one",
+                    nargs: Nargs::One,
+                    required: true,
+                    help: None,
+                    metavar: Some("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"),
+                    kind: Kind::Store,
+                },
+            ],
+            choices: vec![],
         }
-        match parser.parse_args(&["--name".to_string()], &terminal()) {
-            Outcome::Exit { code, stderr, .. } => {
-                assert_eq!(code, 2);
-                assert!(stderr.contains("expected one argument"), "{stderr}");
-            }
-            _ => panic!("a dangling option must exit"),
+    }
+
+    #[test]
+    fn a_long_usage_of_positionals_only_wraps_under_the_first() {
+        assert_eq!(
+            positionals_only().format_usage(&terminal(), false),
+            "usage: planning [AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA]\n                \
+             BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n"
+        );
+    }
+
+    #[test]
+    fn an_optional_positional_gives_way_to_a_required_one() {
+        // argparse: parse_args(["x"]) gives maybe=None, one='x'.
+        let outcome = positionals_only().parse_args(&args(&["x"]), &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Parsed(ns)
+                if ns.values["maybe"] == Value::None && ns.str("one") == Some("x")),
+            "{outcome:?}"
+        );
+        let outcome = positionals_only().parse_args(&args(&["x", "y"]), &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Parsed(ns)
+                if ns.str("maybe") == Some("x") && ns.str("one") == Some("y")),
+            "{outcome:?}"
+        );
+    }
+
+    fn quiet() -> Parser {
+        Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![
+                Action::help(),
+                Action {
+                    options: vec!["--quiet"],
+                    dest: "quiet",
+                    nargs: Nargs::Optional,
+                    required: false,
+                    help: Some(" "),
+                    metavar: Some("Q"),
+                    kind: Kind::Store,
+                },
+            ],
+            choices: vec![],
         }
+    }
+
+    #[test]
+    fn blank_help_ends_the_invocation_line() {
+        // argparse 3.15, add_argument("--quiet", nargs="?", help=" ", metavar="Q").
+        assert_eq!(
+            quiet().format_help(&terminal(), false),
+            "usage: planning [-h] [--quiet [Q]]\n\noptions:\n  -h, --help   show this help \
+             message and exit\n  --quiet [Q]  \n"
+        );
+    }
+
+    #[test]
+    fn an_optional_value_may_be_left_off() {
+        let outcome = quiet().parse_args(&args(&["--quiet"]), &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Parsed(ns) if ns.values["quiet"] == Value::None),
+            "{outcome:?}"
+        );
+        let outcome = quiet().parse_args(&args(&["--quiet", "v"]), &terminal());
+        assert!(
+            matches!(&outcome, Outcome::Parsed(ns) if ns.str("quiet") == Some("v")),
+            "{outcome:?}"
+        );
+    }
+
+    #[test]
+    fn decolor_keeps_escapes_that_are_not_colour_codes() {
+        assert_eq!(
+            decolor("\x1b[1mbold\x1b[0m \x1bxm \x1bplain"),
+            "bold \x1bxm \x1bplain"
+        );
+    }
+
+    #[test]
+    fn finish_collapses_blank_lines_and_ends_with_one_newline() {
+        assert_eq!(finish("a\n\n\n\nb\n\n\n"), "a\n\nb\n");
+        assert_eq!(finish("a"), "a\n");
+        assert_eq!(finish(""), "");
+    }
+
+    #[test]
+    fn nargs_patterns_follow_get_nargs_pattern() {
+        let action = |options: Vec<&'static str>, nargs| Action {
+            options,
+            dest: "x",
+            nargs,
+            required: false,
+            help: None,
+            metavar: None,
+            kind: Kind::Store,
+        };
+        // _get_nargs_pattern, with '-*' and '-' removed for an optional.
+        for (nargs, positional, optional) in [
+            (Nargs::One, "-*A-*", "A"),
+            (Nargs::Optional, "-*A?-*", "A?"),
+            (Nargs::Parser, "-*A[-AO]*", "A[AO]*"),
+        ] {
+            assert_eq!(Parser::nargs_pattern(&action(vec![], nargs)), positional);
+            assert_eq!(Parser::nargs_pattern(&action(vec!["--x"], nargs)), optional);
+        }
+        assert_eq!(Parser::nargs_pattern(&Action::help()), "");
+        assert_eq!(Formatter::format_args(&Action::help(), "X"), "");
+    }
+
+    fn chars(text: &str) -> Vec<char> {
+        text.chars().collect()
+    }
+
+    #[test]
+    fn popular_elements_extend_a_match_as_difflib_does() {
+        // b is 253 long, so 'e' (250 of them) is popular and left out of b2j.
+        // CPython's difflib finds Match(a=1, b=0, size=253) and
+        // Match(a=0, b=0, size=253), each with ratio 2 * 253 / 507.
+        let b = chars(&format!("{}xyz", "e".repeat(250)));
+        let a = chars(&format!("q{}xyz", "e".repeat(250)));
+        let matcher = SequenceMatcher::new(&a, &b);
+        assert_eq!(matcher.find_longest_match(0, 254, 0, 253), (1, 0, 253));
+        assert_eq!(matcher.ratio(), 2.0 * 253.0 / 507.0);
+        let b = chars(&format!("xyz{}", "e".repeat(250)));
+        let a = chars(&format!("xyz{}q", "e".repeat(250)));
+        let matcher = SequenceMatcher::new(&a, &b);
+        assert_eq!(matcher.find_longest_match(0, 254, 0, 253), (0, 0, 253));
+        assert_eq!(matcher.ratio(), 2.0 * 253.0 / 507.0);
+    }
+
+    #[test]
+    fn two_empty_sequences_match_completely() {
+        // SequenceMatcher(None, "", "").ratio() is 1.0.
+        assert_eq!(SequenceMatcher::new(&[], &[]).ratio(), 1.0);
     }
 }
