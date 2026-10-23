@@ -1762,13 +1762,26 @@ mod tests {
         assert_eq!(matcher.ratio(), 2.0 * 253.0 / 507.0);
     }
 
+    /// A, b, longest match, matched total and ratio.
+    type DifflibCase = (String, String, (usize, usize, usize), usize, f64);
+
+    /// Checks each case's longest match, matched total and ratio, all taken
+    /// from CPython 3.15 difflib. b is over 200 long, so 'e' is popular and
+    /// left out of b2j.
+    fn assert_matches_as_difflib_does(cases: &[DifflibCase]) {
+        for (a, b, longest, matched, ratio) in cases {
+            let (a, b) = (chars(a), chars(b));
+            let matcher = SequenceMatcher::new(&a, &b);
+            assert_eq!(matcher.find_longest_match(0, a.len(), 0, b.len()), *longest);
+            assert_eq!(matcher.matches(), *matched);
+            assert_eq!(matcher.ratio(), *ratio);
+        }
+    }
+
     #[test]
-    fn a_match_extends_through_popular_runs_as_difflib_does() {
-        // b is over 200 long, so 'e' is popular and left out of b2j. Each
-        // longest match, matched total and ratio is CPython 3.15 difflib's.
+    fn a_match_extends_through_one_popular_run_as_difflib_does() {
         let e = "e".repeat(250);
-        let (e100, e120) = ("e".repeat(100), "e".repeat(120));
-        for (a, b, longest, matched, ratio) in [
+        assert_matches_as_difflib_does(&[
             (format!("x{e}y"), format!("x{e}y"), (0, 0, 252), 252, 1.0),
             (
                 format!("x{e}z"),
@@ -1785,6 +1798,28 @@ mod tests {
                 0.996031746031746,
             ),
             (
+                format!("ab{e}cd"),
+                format!("ab{e}cd"),
+                (0, 0, 254),
+                254,
+                1.0,
+            ),
+            (
+                format!("ab{e}cx"),
+                format!("ab{e}cd"),
+                (0, 0, 253),
+                253,
+                0.9960629921259843,
+            ),
+        ]);
+    }
+
+    #[test]
+    fn a_match_extends_through_interleaved_popular_runs_as_difflib_does() {
+        let e = "e".repeat(250);
+        let (e100, e120) = ("e".repeat(100), "e".repeat(120));
+        assert_matches_as_difflib_does(&[
+            (
                 format!("x{e120}y{e120}z"),
                 format!("x{e120}y{e120}z"),
                 (0, 0, 243),
@@ -1799,33 +1834,13 @@ mod tests {
                 0.9958847736625515,
             ),
             (
-                format!("ab{e}cd"),
-                format!("ab{e}cd"),
-                (0, 0, 254),
-                254,
-                1.0,
-            ),
-            (
-                format!("ab{e}cx"),
-                format!("ab{e}cd"),
-                (0, 0, 253),
-                253,
-                0.9960629921259843,
-            ),
-            (
                 format!("{e100}x{e100}y"),
                 format!("x{e}y"),
                 (100, 0, 101),
                 102,
                 0.44933920704845814,
             ),
-        ] {
-            let (a, b) = (chars(&a), chars(&b));
-            let matcher = SequenceMatcher::new(&a, &b);
-            assert_eq!(matcher.find_longest_match(0, a.len(), 0, b.len()), longest);
-            assert_eq!(matcher.matches(), matched);
-            assert_eq!(matcher.ratio(), ratio);
-        }
+        ]);
     }
 
     #[test]
