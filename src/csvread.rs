@@ -223,15 +223,12 @@ impl<R: Read> Reader<R> {
                 }
             }
             State::EatCrnl => {
-                if newline {
-                } else if eol {
+                // EatCrnl starts at a '\r' or '\n', and next_line ends each line
+                // there or at the '\n' of a "\r\n", so only that '\n' or the end
+                // of the line follows. csv's "new-line character seen in unquoted
+                // field" error needs text after it and cannot arise from a file.
+                if eol {
                     self.state = State::StartRecord;
-                } else {
-                    return Err(CsvError::Csv(
-                        "new-line character seen in unquoted field - do you need to open the \
-                         file with newline=''?"
-                            .into(),
-                    ));
                 }
             }
         }
@@ -291,6 +288,17 @@ mod tests {
             vec![vec!["a".to_string()], vec!["b".into()]]
         );
         assert!(records(b"").is_empty());
+        // Every '\r', '\n' and "\r\n" ends a line, as open(newline='') splits.
+        assert_eq!(
+            records(b"a\r\r\nb\n\rc,\"q\r\"\r"),
+            vec![
+                vec!["a".to_string()],
+                vec![],
+                vec!["b".into()],
+                vec![],
+                vec!["c".into(), "q\r".into()],
+            ]
+        );
     }
 
     #[test]

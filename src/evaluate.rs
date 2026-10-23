@@ -1081,4 +1081,60 @@ mod tests {
         // A dimension without leaves gives no cells at all.
         assert!(product(&[names(&["a"]), Vec::new()]).is_empty());
     }
+
+    #[test]
+    fn unvalidated_db_references_fail_the_engine_assertions() {
+        // Validation refuses these first; the engine asserts as Python's did.
+        let dir = tempfile::tempdir().unwrap();
+        let model = model(dir.path(), MEASURES, "");
+        let cube = model.cube("Sales").unwrap();
+        let store = CellStore::new();
+        let mut engine = Engine::new(&model, &store, false);
+        let at = ["Red".to_string(), "Amount".to_string()];
+        for (target, coordinates) in [
+            ("Ghost", &["Red", "Amount"][..]),
+            ("Sales", &["Red"][..]),
+            ("Sales", &["!Year", "Amount"][..]),
+        ] {
+            let reference = CellRef {
+                cube: Some(target.into()),
+                coordinates: coordinates.iter().map(|c| c.to_string()).collect(),
+            };
+            let outcome = engine.resolve_reference(&reference, cube, &at);
+            assert!(
+                matches!(&outcome, Err(Error::Uncaught(u)) if u.name == "AssertionError" && u.message.is_empty()),
+                "{outcome:?}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn explaining_a_rule_after_the_model_root_moves_is_a_value_error() {
+        // The rules file is named relative to the root as it resolves when the
+        // cell is explained, so a root link moved since loading cannot hold it.
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().canonicalize().unwrap();
+        let (first, second, root) = (base.join("first"), base.join("second"), base.join("root"));
+        std::fs::create_dir(&first).unwrap();
+        std::fs::create_dir(&second).unwrap();
+        std::os::unix::fs::symlink(&first, &root).unwrap();
+        let model = model(&root, MEASURES, "['Amount'] = N: 5;");
+        std::fs::remove_file(&root).unwrap();
+        std::os::unix::fs::symlink(&second, &root).unwrap();
+        let cells = [(
+            "Sales".to_string(),
+            vec!["Red".to_string(), "Amount".into()],
+        )];
+        let outcome = explain(&model, &CellStore::new(), &cells).map(|_| ());
+        let expected = format!(
+            "'{}' is not in the subpath of '{}'",
+            first.join("cubes/Sales.rules").display(),
+            second.display()
+        );
+        assert!(
+            matches!(&outcome, Err(Error::Uncaught(u)) if u.name == "ValueError" && u.message == expected),
+            "{outcome:?}"
+        );
+    }
 }

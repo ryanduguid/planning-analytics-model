@@ -1757,6 +1757,38 @@ mod tests {
     }
 
     #[test]
+    fn a_popular_run_between_unpopular_elements_still_matches_in_full() {
+        // CPython 3.15's difflib gives these matched totals and ratios. Its
+        // find_longest_match can return a longer first block here, (0, 0, 252)
+        // where this gives (0, 0, 251), but get_matching_blocks recovers the
+        // rest, so the totals close_match ranks by agree.
+        let e = "e".repeat(250);
+        let e120 = "e".repeat(120);
+        for (a, b, matched, ratio) in [
+            (format!("x{e}y"), format!("x{e}y"), 252, 1.0),
+            (format!("x{e}z"), format!("x{e}y"), 251, 0.996031746031746),
+            (format!("q{e}y"), format!("x{e}y"), 251, 0.996031746031746),
+            (
+                format!("x{e120}y{e120}w"),
+                format!("x{e120}y{e120}z"),
+                242,
+                0.9958847736625515,
+            ),
+            (
+                format!("ab{e}cx"),
+                format!("ab{e}cd"),
+                253,
+                0.9960629921259843,
+            ),
+        ] {
+            let (a, b) = (chars(&a), chars(&b));
+            let matcher = SequenceMatcher::new(&a, &b);
+            assert_eq!(matcher.matches(), matched);
+            assert_eq!(matcher.ratio(), ratio);
+        }
+    }
+
+    #[test]
     fn two_empty_sequences_match_completely() {
         // SequenceMatcher(None, "", "").ratio() is 1.0.
         assert_eq!(SequenceMatcher::new(&[], &[]).ratio(), 1.0);
