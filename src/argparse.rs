@@ -1318,29 +1318,16 @@ impl<'a> SequenceMatcher<'a> {
             }
             j2len = newj2len;
         }
-        // No junk is defined, so only popular elements were removed from b2j.
-        let popular = |c: &char| !self.b2j.contains_key(c);
-        while besti > alo && bestj > blo && !popular(&b[bestj - 1]) && a[besti - 1] == b[bestj - 1]
-        {
+        // No junk is defined, so isbjunk is always false: difflib extends the
+        // match over any equal elements, popular ones included, and its two
+        // junk-extension loops never run.
+        while besti > alo && bestj > blo && a[besti - 1] == b[bestj - 1] {
             besti -= 1;
             bestj -= 1;
             bestsize += 1;
         }
         while besti + bestsize < ahi
             && bestj + bestsize < bhi
-            && !popular(&b[bestj + bestsize])
-            && a[besti + bestsize] == b[bestj + bestsize]
-        {
-            bestsize += 1;
-        }
-        while besti > alo && bestj > blo && popular(&b[bestj - 1]) && a[besti - 1] == b[bestj - 1] {
-            besti -= 1;
-            bestj -= 1;
-            bestsize += 1;
-        }
-        while besti + bestsize < ahi
-            && bestj + bestsize < bhi
-            && popular(&b[bestj + bestsize])
             && a[besti + bestsize] == b[bestj + bestsize]
         {
             bestsize += 1;
@@ -1412,6 +1399,25 @@ mod tests {
         assert_eq!(close_match("calc", &names), Some("calculate"));
         assert_eq!(close_match("reprot", &names), Some("report"));
         assert_eq!(close_match("", &names), None);
+    }
+
+    #[test]
+    fn a_long_word_with_popular_elements_is_suggested_as_difflib_does() {
+        // The word is 206 long, so its 200 'e's are popular. CPython 3.15
+        // matches 206 of 413 elements (ratio 412/413) and
+        // get_close_matches(word, [candidate], 1, 0.6) suggests the
+        // candidate. Stopping the extension at popular elements matched only
+        // 5 (ratio 10/413) and suggested nothing.
+        let word = format!("z{}xezeww", "e".repeat(199));
+        let candidate = format!("zz{}xezeww", "e".repeat(199));
+        let (a, b) = (chars(&candidate), chars(&word));
+        let matcher = SequenceMatcher::new(&a, &b);
+        assert_eq!(matcher.matches(), 206);
+        assert_eq!(matcher.ratio(), 412.0 / 413.0);
+        assert_eq!(
+            close_match(&word, &[candidate.as_str()]),
+            Some(candidate.as_str())
+        );
     }
 
     #[test]
@@ -1757,32 +1763,66 @@ mod tests {
     }
 
     #[test]
-    fn a_popular_run_between_unpopular_elements_still_matches_in_full() {
-        // CPython 3.15's difflib gives these matched totals and ratios. Its
-        // find_longest_match can return a longer first block here, (0, 0, 252)
-        // where this gives (0, 0, 251), but get_matching_blocks recovers the
-        // rest, so the totals close_match ranks by agree.
+    fn a_match_extends_through_popular_runs_as_difflib_does() {
+        // b is over 200 long, so 'e' is popular and left out of b2j. Each
+        // longest match, matched total and ratio is CPython 3.15 difflib's.
         let e = "e".repeat(250);
-        let e120 = "e".repeat(120);
-        for (a, b, matched, ratio) in [
-            (format!("x{e}y"), format!("x{e}y"), 252, 1.0),
-            (format!("x{e}z"), format!("x{e}y"), 251, 0.996031746031746),
-            (format!("q{e}y"), format!("x{e}y"), 251, 0.996031746031746),
+        let (e100, e120) = ("e".repeat(100), "e".repeat(120));
+        for (a, b, longest, matched, ratio) in [
+            (format!("x{e}y"), format!("x{e}y"), (0, 0, 252), 252, 1.0),
+            (
+                format!("x{e}z"),
+                format!("x{e}y"),
+                (0, 0, 251),
+                251,
+                0.996031746031746,
+            ),
+            (
+                format!("q{e}y"),
+                format!("x{e}y"),
+                (1, 1, 251),
+                251,
+                0.996031746031746,
+            ),
+            (
+                format!("x{e120}y{e120}z"),
+                format!("x{e120}y{e120}z"),
+                (0, 0, 243),
+                243,
+                1.0,
+            ),
             (
                 format!("x{e120}y{e120}w"),
                 format!("x{e120}y{e120}z"),
+                (0, 0, 242),
                 242,
                 0.9958847736625515,
             ),
             (
+                format!("ab{e}cd"),
+                format!("ab{e}cd"),
+                (0, 0, 254),
+                254,
+                1.0,
+            ),
+            (
                 format!("ab{e}cx"),
                 format!("ab{e}cd"),
+                (0, 0, 253),
                 253,
                 0.9960629921259843,
+            ),
+            (
+                format!("{e100}x{e100}y"),
+                format!("x{e}y"),
+                (100, 0, 101),
+                102,
+                0.44933920704845814,
             ),
         ] {
             let (a, b) = (chars(&a), chars(&b));
             let matcher = SequenceMatcher::new(&a, &b);
+            assert_eq!(matcher.find_longest_match(0, a.len(), 0, b.len()), longest);
             assert_eq!(matcher.matches(), matched);
             assert_eq!(matcher.ratio(), ratio);
         }
