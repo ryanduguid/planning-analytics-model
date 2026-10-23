@@ -33,11 +33,6 @@ impl Uncaught {
             format!("[<class 'decimal.{}'>]", signal.name()),
         )
     }
-
-    /// Python's own RecursionError, which the binary does not share.
-    pub fn recursion() -> Uncaught {
-        Uncaught::new("RecursionError", "maximum recursion depth exceeded")
-    }
 }
 
 /// A failure while loading, validating or calculating.
@@ -97,3 +92,26 @@ impl From<Uncaught> for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_is_str_of_the_error() {
+        for (error, text) in [
+            (Error::model("model"), "model"),
+            (Error::evaluation("evaluation"), "evaluation"),
+            (Error::RuleSyntax("syntax".into()), "syntax"),
+            (Error::Decode("decode".into()), "decode"),
+            (Error::Os("os".into()), "os"),
+            (Error::cli(EXIT_USAGE, "cli"), "cli"),
+            (
+                Error::from(Uncaught::new("ValueError", "uncaught")),
+                "uncaught",
+            ),
+        ] {
+            assert_eq!(error.message(), text);
+        }
+    }
+}

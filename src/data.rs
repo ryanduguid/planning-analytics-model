@@ -276,3 +276,25 @@ pub fn load_data(model: &Model, directory: &PyPath) -> Result<CellStore> {
     }
     Ok(store)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_failed_read_part_way_through_a_csv_is_an_os_error() {
+        // csv.reader lets an OSError from the file pass through unchanged and
+        // turns its own failures into _csv.Error.
+        let path = PyPath::new("data/PnL.csv");
+        let error = csv_failure(CsvError::Io(std::io::Error::other("disk fault")), &path);
+        assert!(
+            matches!(&error, Error::Os(m) if m == "disk fault"),
+            "{error:?}"
+        );
+        let error = csv_failure(CsvError::Csv("bad".into()), &path);
+        assert!(
+            matches!(&error, Error::Uncaught(u) if u.name == "_csv.Error" && u.message == "bad"),
+            "{error:?}"
+        );
+    }
+}

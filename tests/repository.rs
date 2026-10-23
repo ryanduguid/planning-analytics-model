@@ -267,3 +267,16 @@ fn the_binary_writes_python_line_endings() {
     assert!(err.starts_with("usage: pacioliscube [-h] [--version] SUBCOMMAND ..."));
     assert_eq!(err.contains("\r\n"), cfg!(windows));
 }
+
+#[test]
+fn a_rule_qualifier_outside_the_grammar_fails_the_check() {
+    let unqualified = |text: &str| {
+        let mut parsed = parse_rules(text, "Fuzz.rules")?;
+        parsed.rules[0].area.qualifier = "S";
+        Ok(parsed)
+    };
+    assert_eq!(
+        check_with(b"['A'] = 1;", unqualified),
+        Err("unexpected rule qualifier \"S\"".to_string())
+    );
+}

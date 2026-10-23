@@ -139,9 +139,13 @@ fn can_colorize(env: &dyn Fn(&str) -> Option<String>, tty: bool, console: &Conso
     if env("TERM").as_deref() == Some("dumb") {
         return false;
     }
-    if cfg!(windows) && !console.virtual_terminal {
+    // Only Windows consoles can refuse colour sequences.
+    #[cfg(windows)]
+    if !console.virtual_terminal {
         return false;
     }
+    #[cfg(not(windows))]
+    let _ = console;
     tty
 }
 
@@ -184,5 +188,27 @@ impl Terminal {
             colour_stdout: false,
             colour_stderr: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_console_width_counts_where_columns_gives_none() {
+        // shutil.get_terminal_size: COLUMNS first, then the console, then 80.
+        let console = |columns| Console {
+            columns,
+            ..Console::pipes()
+        };
+        let zero = |name: &str| (name == "COLUMNS").then(|| "0".to_string());
+        assert_eq!(Terminal::from(&zero, &console(Some(100))).columns, 100);
+        let unset = |_: &str| None;
+        assert_eq!(Terminal::from(&unset, &console(Some(0))).columns, 80);
+        assert_eq!(Terminal::from(&unset, &console(None)).columns, 80);
+        // int(COLUMNS) raising ValueError counts as 0, however long the text.
+        let long = |name: &str| (name == "COLUMNS").then(|| "x".repeat(201));
+        assert_eq!(Terminal::from(&long, &console(Some(90))).columns, 90);
     }
 }

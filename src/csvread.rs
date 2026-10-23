@@ -223,15 +223,12 @@ impl<R: Read> Reader<R> {
                 }
             }
             State::EatCrnl => {
-                if newline {
-                } else if eol {
+                // EatCrnl starts at a '\r' or '\n', and next_line ends each line
+                // there or at the '\n' of a "\r\n", so only that '\n' or the end
+                // of the line follows. csv's "new-line character seen in unquoted
+                // field" error needs text after it and cannot arise from a file.
+                if eol {
                     self.state = State::StartRecord;
-                } else {
-                    return Err(CsvError::Csv(
-                        "new-line character seen in unquoted field - do you need to open the \
-                         file with newline=''?"
-                            .into(),
-                    ));
                 }
             }
         }
@@ -291,6 +288,17 @@ mod tests {
             vec![vec!["a".to_string()], vec!["b".into()]]
         );
         assert!(records(b"").is_empty());
+        // Every '\r', '\n' and "\r\n" ends a line, as open(newline='') splits.
+        assert_eq!(
+            records(b"a\r\r\nb\n\rc,\"q\r\"\r"),
+            vec![
+                vec!["a".to_string()],
+                vec![],
+                vec!["b".into()],
+                vec![],
+                vec!["c".into(), "q\r".into()],
+            ]
+        );
     }
 
     #[test]
@@ -299,18 +307,51 @@ mod tests {
         data[8192] = 0xff;
         let mut reader = Reader::new(&data[..]);
         let mut rows = 0;
-        let error = loop {
+        let outcome = loop {
             match reader.next_record() {
                 Ok(Some(_)) => rows += 1,
-                Ok(None) => panic!("the invalid byte was not reached"),
-                Err(CsvError::Decode(e)) => break e,
-                Err(_) => panic!("unexpected error"),
+                outcome => break outcome,
             }
         };
         assert_eq!(rows, 1365);
-        assert_eq!(
-            error.to_string(),
-            "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+        assert!(
+            matches!(
+                &outcome,
+                Err(CsvError::Decode(e)) if e.to_string()
+                    == "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+            ),
+            "{outcome:?}"
         );
+    }
+
+    /// A source that is interrupted once, yields one line, then fails.
+    struct Flaky {
+        calls: usize,
+    }
+
+    impl Read for Flaky {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.calls += 1;
+            match self.calls {
+                1 => Err(std::io::ErrorKind::Interrupted.into()),
+                2 => {
+                    buf[..4].copy_from_slice(b"a,b\n");
+                    Ok(4)
+                }
+                _ => Err(std::io::Error::other("the disk went away")),
+            }
+        }
+    }
+
+    #[test]
+    fn an_interrupted_read_is_retried_and_a_failed_one_is_reported() {
+        let mut reader = Reader::new(Flaky { calls: 0 });
+        let outcome = reader.next_record();
+        assert!(
+            matches!(&outcome, Err(CsvError::Io(e)) if e.to_string() == "the disk went away"),
+            "{outcome:?}"
+        );
+        // The interrupted read was retried: the failure came on the third call.
+        assert_eq!(reader.lines.source.calls, 3);
     }
 }

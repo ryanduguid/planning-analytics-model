@@ -43,7 +43,8 @@ impl<W: std::io::Write> std::io::Write for TextStream<W> {
     /// its buffer one encoded chunk: what stays pending after a failed write
     /// then matches Python's.
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if cfg!(windows) && buf.contains(&b'\n') {
+        #[cfg(windows)]
+        if buf.contains(&b'\n') {
             let mut translated = Vec::with_capacity(buf.len() + buf.len() / 16);
             for b in buf {
                 if *b == b'\n' {
@@ -52,9 +53,9 @@ impl<W: std::io::Write> std::io::Write for TextStream<W> {
                 translated.push(*b);
             }
             self.inner.write_all(&translated)?;
-        } else {
-            self.inner.write_all(buf)?;
+            return Ok(buf.len());
         }
+        self.inner.write_all(buf)?;
         Ok(buf.len())
     }
 

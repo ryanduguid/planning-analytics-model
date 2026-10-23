@@ -348,12 +348,19 @@ fn pythonintmaxstrdigits_sets_the_integer_digit_limit_as_python_does() {
     let (code, err) = validate(Some("640"));
     assert_eq!(code, Some(2));
     assert!(err.contains("Exceeds the limit (640 digits)"), "{err}");
-    let (code, err) = validate(Some("5"));
-    assert_eq!(code, Some(1));
-    assert!(
-        err.starts_with("Fatal Python error: config_init_int_max_str_digits: "),
-        "{err}"
-    );
+    // strtol's sign: "+640" is 640 and "-0" is 0, but any other negative is invalid.
+    let (code, err) = validate(Some("+640"));
+    assert_eq!(code, Some(2));
+    assert!(err.contains("Exceeds the limit (640 digits)"), "{err}");
+    assert_eq!(validate(Some("-0")).0, Some(0));
+    for invalid in ["5", "-640", "640x"] {
+        let (code, err) = validate(Some(invalid));
+        assert_eq!(code, Some(1), "{invalid}");
+        assert!(
+            err.starts_with("Fatal Python error: config_init_int_max_str_digits: "),
+            "{invalid}: {err}"
+        );
+    }
 }
 
 fn copy_dir(from: &Path, to: &Path) {
@@ -977,6 +984,38 @@ fn help_and_version_exit_zero() {
     let (code, out, _) = run(&["--version"]);
     assert_eq!(code, 0);
     assert_eq!(out, format!("pacioliscube {}\n", env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
+fn combined_short_flags_and_stray_arguments_follow_argparse() {
+    // Each expectation is what the Python engine (a41699b^) printed under
+    // CPython 3.15.0's argparse.
+    let usage = "usage: pacioliscube [-h] [--version] SUBCOMMAND ...\n";
+    let error = |message: &str| {
+        (
+            1,
+            String::new(),
+            format!("{usage}pacioliscube: error: {message}\n"),
+        )
+    };
+    let (_, help, _) = run(&["--help"]);
+    // "-hh" is -h twice; in "-hhx" the unknown -x is set aside after help exits.
+    assert_eq!(run(&["-hh"]), (0, help.clone(), String::new()));
+    assert_eq!(run(&["-hhx"]), (0, help, String::new()));
+    assert_eq!(
+        run(&["-hh=x"]),
+        error("argument -h/--help: ignored explicit argument 'x'")
+    );
+    // A bare "-" before "=" is a prefix of every option.
+    assert_eq!(
+        run(&["-=x"]),
+        error("ambiguous option: -=x could match -h, --help, --version")
+    );
+    // A second positional, which calculate does not take, before its options.
+    assert_eq!(
+        run(&["calculate", "m", "extra", "--data", "x", "--cell", "y"]),
+        error("unrecognized arguments: extra")
+    );
 }
 
 #[test]
@@ -1703,3 +1742,441 @@ fn csv_formula_prefixes_get_a_leading_apostrophe() {
         assert_eq!(csv_records(&out)[1][2], format!("'{label}"), "{label:?}");
     }
 }
+
+// ---------------------------------------------------------------- remaining arms
+
+#[test]
+fn a_dimension_a_cube_lists_twice_keeps_its_first_place_in_the_report() {
+    // The Python engine (a41699b^) printed the same statement for this tree.
+    let tmp = tempdir();
+    let root = build_report_model(
+        &tmp.path().join("model"),
+        &[
+            ("Year", &["FY2026-27"]),
+            ("Version", &["Budget"]),
+            ("Account", &STATEMENT_ROWS),
+        ],
+    );
+    std::fs::write(
+        Path::new(&root).join("cubes").join("PnL.json"),
+        r#"{"Name": "PnL", "Dimensions@Code.links": ["../dimensions/Year.json", "../dimensions/Version.json", "../dimensions/Account.json", "../dimensions/Year.json"]}"#,
+    )
+    .unwrap();
+    let data = tmp.path().join("data");
+    std::fs::create_dir(&data).unwrap();
+    std::fs::write(
+        data.join("PnL.csv"),
+        "Year,Version,Account,Year,Value\nFY2026-27,Budget,Revenue,FY2026-27,100\n",
+    )
+    .unwrap();
+    let (code, out, err) = run(&[
+        "report",
+        &root,
+        "--data",
+        &s(&data),
+        "--year",
+        "FY2026-27",
+        "--version",
+        "Budget",
+    ]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "Profit and loss for FY2026-27, Budget\nPnL, whole cube: it carries none of the usual \
+         reporting dimensions\n\nRevenue           100\nDirect Costs        0\nGross Margin        \
+         0\nEmployment Costs    0\nOverheads           0\nEBITDA              0\nDepreciation        \
+         0\nEBIT                0\n"
+    );
+}
+
+#[test]
+fn process_parameters_that_cannot_be_iterated_end_in_a_type_error() {
+    // tuple(5) raised TypeError in the Python loader, which nothing caught.
+    let tmp = tempdir();
+    let root = s(&write_model(
+        &tmp.path().join("model"),
+        &Spec {
+            processes: "#Region Prolog\n#EndRegion\n".into(),
+            parameters: "5".into(),
+            ..Spec::default()
+        },
+    ));
+    assert_eq!(
+        run(&["validate", &root]),
+        (
+            1,
+            String::new(),
+            "pacioliscube: unexpected error: TypeError: 'int' object is not iterable\n".into()
+        )
+    );
+}
+
+#[test]
+fn a_value_too_long_to_print_in_full_is_out_of_memory() {
+    // format(Decimal("1E+2000000000"), "f") would be two thousand million digits.
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), "", &[]);
+    let data = build_data(
+        &tmp.path().join("data"),
+        "sales.csv",
+        "Red,Units,1E+2000000000\n",
+    );
+    assert_eq!(
+        run(&[
+            "calculate",
+            &root,
+            "--data",
+            &data,
+            "--cell",
+            "Sales:Red,Units"
+        ]),
+        (
+            1,
+            String::new(),
+            "pacioliscube: unexpected error: MemoryError\n".into()
+        )
+    );
+}
+
+#[test]
+fn a_csv_field_past_the_field_limit_is_a_csv_error() {
+    // csv.field_size_limit() is 131072; Python's _csv.Error was not caught.
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), "", &[]);
+    let long = "R".repeat(131_073);
+    let data = build_data(
+        &tmp.path().join("data"),
+        "sales.csv",
+        &format!("{long},Units,1\n"),
+    );
+    assert_eq!(
+        run(&[
+            "calculate",
+            &root,
+            "--data",
+            &data,
+            "--cell",
+            "Sales:Red,Units"
+        ]),
+        (
+            1,
+            String::new(),
+            "pacioliscube: unexpected error: _csv.Error: field larger than field limit (131072)\n"
+                .into()
+        )
+    );
+}
+
+#[test]
+fn a_directory_named_like_a_csv_is_not_read_as_data() {
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), "", &[]);
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,4\n");
+    std::fs::create_dir(Path::new(&data).join("archive.csv")).unwrap();
+    assert_eq!(
+        run(&[
+            "calculate",
+            &root,
+            "--data",
+            &data,
+            "--cell",
+            "Sales:Red,Units"
+        ]),
+        (0, "Sales:Red,Units = 4\n".into(), String::new())
+    );
+}
+
+#[test]
+fn a_cell_reference_with_a_blank_cube_or_coordinate_is_a_usage_error() {
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), "", &[]);
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,4\n");
+    for cell in [" :Red,Units", "Sales: "] {
+        let (code, out, err) = run(&["calculate", &root, "--data", &data, "--cell", cell]);
+        assert_eq!(code, 1, "{cell}");
+        assert_eq!(out, "");
+        assert_eq!(
+            err,
+            format!(
+                "pacioliscube: cell reference '{cell}' is not in the form CUBE:element,element,...\n"
+            )
+        );
+    }
+}
+
+#[test]
+fn compare_names_a_previous_data_directory_that_is_not_there() {
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), "", &[]);
+    let current = build_data(&tmp.path().join("after"), "sales.csv", "Red,Units,4\n");
+    let missing = s(&tmp.path().join("before"));
+    let (code, out, err) = run(&[
+        "compare",
+        &root,
+        "--previous-data",
+        &missing,
+        "--current-data",
+        &current,
+        "--cell",
+        "Sales:Red,Units",
+    ]);
+    assert_eq!((code, out.as_str()), (1, ""));
+    assert_eq!(
+        err,
+        format!("pacioliscube: {missing}: there is no previous data directory there\n")
+    );
+}
+
+#[test]
+fn the_demo_reports_a_temporary_directory_it_cannot_write_to() {
+    let tmp = tempdir();
+    let missing = tmp.path().join("no-such-temp");
+    // std::env::temp_dir reads TMPDIR on Unix and TMP, then TEMP, on Windows.
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .arg("demo")
+        .env("TMPDIR", &missing)
+        .env("TMP", &missing)
+        .env("TEMP", &missing)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        err.starts_with(
+            "pacioliscube: the demo inputs could not be written to a temporary directory, "
+        ),
+        "{err}"
+    );
+}
+
+/// `IF(['Units'] > 0, ['Units'] * ['Price'], 0)`, with Red's units falling to
+/// zero between the snapshots and Blue's left alone.
+fn branching_snapshots(tmp: &Path) -> (String, String, String) {
+    let root = build_model(
+        &tmp.join("model"),
+        "['Amount'] = N: IF(['Units'] > 0, ['Units'] * ['Price'], 0);\n",
+        &[],
+    );
+    let previous = build_data(
+        &tmp.join("before"),
+        "sales.csv",
+        "Red,Units,2\nRed,Price,10\nBlue,Units,1\nBlue,Price,5\n",
+    );
+    let current = build_data(
+        &tmp.join("after"),
+        "sales.csv",
+        "Red,Units,0\nRed,Price,10\nBlue,Units,1\nBlue,Price,5\n",
+    );
+    (root, previous, current)
+}
+
+#[test]
+fn explain_records_the_comparison_and_the_branch_an_if_took() {
+    let tmp = tempdir();
+    let (root, previous, _) = branching_snapshots(tmp.path());
+    let (code, out, err) = run(&[
+        "explain",
+        &root,
+        "--data",
+        &previous,
+        "--cell",
+        "Sales:Red,Amount",
+    ]);
+    assert_eq!(code, 0, "{err}");
+    // 2 > 0, so the then branch: 2 * 10 = 20. The Python engine printed the same.
+    assert!(
+        out.contains(
+            "      \"steps\": [\n        {\n          \"operator\": \">\",\n          \"left\": \
+             \"2\",\n          \"right\": \"0\",\n          \"result\": true\n        },\n        \
+             {\n          \"operator\": \"IF\",\n          \"branch\": \"then\"\n        },\n        \
+             {\n          \"operator\": \"*\",\n          \"left\": \"2\",\n          \"right\": \
+             \"10\",\n          \"result\": \"20\"\n        }\n      ],\n      \"value\": \"20\"\n"
+        ),
+        "{out}"
+    );
+}
+
+#[test]
+fn compare_lists_the_cells_whose_evidence_changed_when_a_branch_flips() {
+    let tmp = tempdir();
+    let (root, previous, current) = branching_snapshots(tmp.path());
+    let (code, out, err) = run(&[
+        "compare",
+        &root,
+        "--previous-data",
+        &previous,
+        "--current-data",
+        &current,
+        "--cell",
+        "Sales:Red,Amount",
+        "--cell",
+        "Sales:Blue,Amount",
+    ]);
+    assert_eq!(code, 0, "{err}");
+    // Red: 2 * 10 = 20 before; 0 > 0 is false, so 0 after. Blue: 1 * 5 = 5 both times.
+    assert!(out.contains(
+        "\"cell\": \"Sales['Red', 'Amount']\",\n      \"previous\": \"20\",\n      \"current\": \
+         \"0\",\n      \"difference\": \"-20\""
+    ));
+    assert!(out.contains(
+        "\"cell\": \"Sales['Blue', 'Amount']\",\n      \"previous\": \"5\",\n      \"current\": \
+         \"5\",\n      \"difference\": \"0\""
+    ));
+    let changes = out
+        .split("\"evidence_changes\": [")
+        .nth(1)
+        .unwrap()
+        .split("\"previous_explanation\"")
+        .next()
+        .unwrap();
+    let cells: Vec<&str> = changes
+        .split("\n      \"cell\": \"")
+        .skip(1)
+        .map(|rest| rest.split('"').next().unwrap())
+        .collect();
+    // Blue's evidence, comparison and branch included, is the same in both.
+    assert_eq!(
+        cells,
+        [
+            "Sales['Red', 'Amount']",
+            "Sales['Red', 'Price']",
+            "Sales['Red', 'Units']"
+        ]
+    );
+    // The else branch never read Red's price.
+    let price = changes
+        .split("\n      \"cell\": \"Sales['Red', 'Price']\"")
+        .nth(1)
+        .unwrap();
+    assert!(
+        price
+            .split("\n      \"cell\"")
+            .next()
+            .unwrap()
+            .contains("\"current\": null"),
+        "{changes}"
+    );
+    assert!(changes.contains("\"branch\": \"then\"") && changes.contains("\"branch\": \"else\""));
+}
+
+#[test]
+fn a_model_fault_explain_meets_returns_two() {
+    let tmp = tempdir();
+    let root = build_model(&tmp.path().join("model"), AMBIGUOUS_AREA_RULES, &[]);
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+    let (code, out, err) = run(&[
+        "explain",
+        &root,
+        "--data",
+        &data,
+        "--cell",
+        "Sales:Total,Amount",
+    ]);
+    assert_eq!((code, out.as_str()), (2, ""));
+    assert_eq!(
+        err,
+        "pacioliscube: cube 'Sales': area names two elements of dimension 'Colour'\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_argument_that_is_not_utf_8_is_refused() {
+    use std::os::unix::ffi::OsStrExt;
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .arg(std::ffi::OsStr::from_bytes(b"validate\xff"))
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "pacioliscube: unexpected error: UnicodeError: a command line argument is not UTF-8 text\n"
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn an_argument_that_is_not_utf_8_is_refused() {
+    use std::os::windows::ffi::OsStringExt;
+    // An unpaired surrogate has no UTF-8 form.
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .arg(std::ffi::OsString::from_wide(&[0x76, 0xd800]))
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "pacioliscube: unexpected error: UnicodeError: a command line argument is not UTF-8 text\r\n"
+    );
+}
+
+/// stdout on a 60-column pseudo-terminal: shutil.get_terminal_size reads the
+/// console when COLUMNS is unset, and argparse wraps help to 58 columns.
+#[cfg(unix)]
+#[test]
+fn help_on_a_terminal_wraps_to_the_terminal_width() {
+    use std::io::Read;
+    use std::os::fd::{FromRawFd, OwnedFd};
+    let (mut master, mut slave) = (0, 0);
+    let size = libc::winsize {
+        ws_row: 24,
+        ws_col: 60,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    // SAFETY: both descriptors are valid writable ints and size outlives the call.
+    let opened = unsafe {
+        libc::openpty(
+            &mut master,
+            &mut slave,
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            &size,
+        )
+    };
+    assert_eq!(opened, 0);
+    // SAFETY: openpty returned two open descriptors that nothing else owns.
+    let (master, slave) = unsafe { (OwnedFd::from_raw_fd(master), OwnedFd::from_raw_fd(slave)) };
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
+        .arg("--help")
+        .env_remove("COLUMNS")
+        .env_remove("PYTHON_COLORS")
+        .env_remove("FORCE_COLOR")
+        .env("NO_COLOR", "1")
+        .stdout(slave)
+        .spawn()
+        .unwrap();
+    let mut text = Vec::new();
+    // Reading the master ends with EIO once the child has closed the terminal.
+    let _ = std::fs::File::from(master).read_to_end(&mut text);
+    assert_eq!(child.wait().unwrap().code(), Some(0));
+    let text = String::from_utf8(text).unwrap().replace("\r\n", "\n");
+    // The Python engine (a41699b^) with COLUMNS=60 printed this help.
+    assert_eq!(text, HELP_AT_60_COLUMNS);
+}
+
+#[cfg(unix)]
+const HELP_AT_60_COLUMNS: &str = "usage: pacioliscube [-h] [--version] SUBCOMMAND ...
+
+Validate, calculate, explain and report on a Planning
+Analytics model tree. Reads the model and its data, never
+writes.
+
+positional arguments:
+  SUBCOMMAND
+    demo       calculate gross margin from packaged
+               synthetic inputs
+    validate   report structural findings in a model
+    compare    compare two data snapshots using the same
+               model and requested cells
+    calculate  print the value at one or more cells
+    explain    print JSON calculation evidence for one or
+               more cells
+    report     print a profit and loss for a year and
+               version
+
+options:
+  -h, --help   show this help message and exit
+  --version    show program's version number and exit
+";
