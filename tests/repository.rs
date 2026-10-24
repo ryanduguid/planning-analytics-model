@@ -147,7 +147,7 @@ fn the_version_file_matches_the_crate_and_its_lock() {
 #[test]
 fn line_coverage_is_measured_and_gated() {
     let workflow = read(".github/workflows/ci.yml");
-    assert!(workflow.contains("cargo install cargo-llvm-cov --locked --version "));
+    assert!(workflow.contains("tool: cargo-llvm-cov@0."));
     assert!(workflow.contains(
         "cargo llvm-cov --locked --lcov --output-path coverage-codecov.lcov --fail-under-lines 90"
     ));
