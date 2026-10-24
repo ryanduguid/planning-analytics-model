@@ -283,18 +283,8 @@ fn a_file_name_that_is_not_unicode_text_is_refused_not_replaced() {
 
 #[test]
 fn a_failed_final_flush_exits_120_as_python_does() {
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
-        .arg("--help")
-        .env_remove("PYTHONUNBUFFERED")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    // Close the reading end before the help text is flushed.
-    drop(child.stdout.take());
-    let output = child.wait_with_output().unwrap();
-    assert_eq!(output.status.code(), Some(120));
-    let err = String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n");
+    let (code, err) = with_closed(Closed::Out, &["--help"], false);
+    assert_eq!(code, Some(120));
     assert!(
         err.starts_with("Exception ignored while flushing sys.stdout:\n"),
         "{err}"
@@ -303,17 +293,8 @@ fn a_failed_final_flush_exits_120_as_python_does() {
 
 #[test]
 fn pythonunbuffered_ends_the_command_at_the_failed_print() {
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"))
-        .arg("demo")
-        .env("PYTHONUNBUFFERED", "1")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    drop(child.stdout.take());
-    let output = child.wait_with_output().unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    let err = String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n");
+    let (code, err) = with_closed(Closed::Out, &["demo"], true);
+    assert_eq!(code, Some(1));
     assert!(err.starts_with("pacioliscube: [Errno "), "{err}");
     assert_eq!(err.lines().count(), 1, "{err}");
 }
@@ -421,6 +402,7 @@ enum Closed {
 fn with_closed(closed: Closed, args: &[&str], unbuffered: bool) -> (Option<i32>, String) {
     // The reading end is dropped before the spawn. Dropping the child's pipe
     // after it started raced the child's first write, which then succeeded.
+    // Close the world, open the nExt.
     let (reader, writer) = std::io::pipe().unwrap();
     drop(reader);
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_pacioliscube"));
