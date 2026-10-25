@@ -1,6 +1,7 @@
-# v1.0.0 (unreleased)
+# v1.0.0
 
 - Breaking: the engine is a Rust command line built with Cargo, replacing the Python package at version 0.3.0. It preserves the `pacioliscube` subcommands, flags, exit codes and output except for the differences in [CHANGELOG.md](CHANGELOG.md); the Python library API is removed.
+- New: `pacioliscube mcp MODEL_DIR --data DIR` serves the engine read-only to a Model Context Protocol client over stdio. No tool takes a path; see the README's MCP section.
 
 # v0.3.0
 

@@ -1,6 +1,6 @@
 # pacioliscube changes
 
-## 1.0.0 (unreleased)
+## 1.0.0
 
 The engine is now a Rust command line. It replaces the Python package
 `pacioliscube` 0.3.0 at the base revision; the import package and its
