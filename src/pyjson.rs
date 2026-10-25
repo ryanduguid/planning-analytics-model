@@ -141,6 +141,7 @@ enum Frame {
 // shortcut: a cost per level stands in for the scanner's stack frames, so a
 // document within a level (Windows) or about ten levels (Linux) of the limit
 // may be judged differently from Python.
+// Measure real stack use if a document near the limit is judged differently.
 #[cfg(windows)]
 const STACK_BUDGET: u64 = 1_385_630_000;
 #[cfg(windows)]
@@ -492,6 +493,7 @@ fn scanstring(s: &[char], end: usize) -> Result<(String, usize), DecodeError> {
             Some(ch) => out.push(ch),
             // shortcut: Python keeps a lone surrogate in the string; a Rust
             // string cannot hold one, so the escape is refused here.
+            // Use a surrogate-preserving string type if a real input carries one.
             None => {
                 return Err(decode_error(
                     "Unpaired surrogate in \\uXXXX escape",
