@@ -264,8 +264,10 @@ jobs:
           echo "${CARGO_FUZZ_SHA256}  $asset" | sha256sum --check
           tar -xzf "$asset" -C "${CARGO_HOME:-$HOME/.cargo}/bin" cargo-fuzz
       - name: Fuzz the rules parser
+        # The release binary is built for musl and defaults to that target,
+        # where the address sanitiser cannot build; fuzz on glibc instead.
         run: >-
-          cargo +nightly-2026-10-15 fuzz run rules_parser fuzz/corpus --
+          cargo +nightly-2026-10-15 fuzz run --target x86_64-unknown-linux-gnu rules_parser fuzz/corpus --
           -max_total_time=60 -max_len=4096 -timeout=2 -rss_limit_mb=1024
 
   tests-gates:
