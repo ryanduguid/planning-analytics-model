@@ -57,6 +57,10 @@ jobs:
           persist-credentials: false
       - name: Install the pinned toolchain
         run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component clippy,rustfmt
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Pull requests read main's cache and never write their own.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check formatting
         run: cargo fmt --check
       - name: Lint the engine, its tests and its benchmark
@@ -83,6 +87,16 @@ jobs:
           persist-credentials: false
       - name: Install the pinned toolchain
         run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Pull requests read main's cache and never write their own.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Install the pinned cargo-llvm-cov
+        if: matrix.os == 'ubuntu-latest'
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-llvm-cov@0.9.1
+          fallback: none
       - name: Run the tests
         if: matrix.os != 'ubuntu-latest'
         run: cargo test --locked
@@ -90,7 +104,6 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           rustup component add llvm-tools-preview --toolchain "$RUST_TOOLCHAIN"
-          cargo install cargo-llvm-cov --locked --version 0.9.1
           cargo llvm-cov --locked --lcov --output-path coverage-codecov.lcov --fail-under-lines 90
       - name: Keep the coverage report for the Codecov upload
         if: matrix.os == 'ubuntu-latest'
@@ -137,10 +150,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the pinned toolchain and auditor
-        run: |
-          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
-          cargo install cargo-audit --locked --version 0.22.2
+      - name: Install the pinned toolchain
+        run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      - name: Install the pinned auditor
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-audit@0.22.2
+          fallback: none
       # Both locks: the engine's and the fuzzer's.
       - name: Audit the locked dependencies against the RustSec database
         run: |
@@ -160,6 +176,10 @@ jobs:
           persist-credentials: false
       - name: Install the pinned toolchain
         run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Pull requests read main's cache and never write their own.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # A release binary that builds but cannot read its own model tree is a
       # broken build artefact, so the real command line runs against the real
       # model here, from a directory outside the checkout.
@@ -206,6 +226,10 @@ jobs:
           "$RUNNER_TEMP/tm1git/bin/python" "$GITHUB_WORKSPACE/ci/tm1gitpy_model.py" "$GITHUB_WORKSPACE/model" tm1gitpy-model.json
       - name: Install the pinned toolchain
         run: rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Pull requests read main's cache and never write their own.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Compare the engine with tm1gitpy on model/
         env:
           PACIOLISCUBE_REQUIRE_TM1GITPY: "1"
@@ -227,12 +251,23 @@ jobs:
           persist-credentials: false
       # libFuzzer instrumentation needs a nightly compiler; the date is pinned.
       - name: Install the pinned fuzzer
+        env:
+          CARGO_FUZZ_VERSION: "0.13.2"
+          # install-action has no cargo-fuzz manifest, so the release asset is
+          # checked against GitHub's digest for it at pin time.
+          CARGO_FUZZ_SHA256: "b5b704018b63e0f151c17a057ac53b5111e1db545d1b9f72fee79f08a545931c"
         run: |
+          set -euo pipefail
           rustup toolchain install nightly-2026-10-15 --profile minimal
-          cargo install cargo-fuzz --locked --version 0.13.2
+          asset="cargo-fuzz-${CARGO_FUZZ_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl --proto '=https' --proto-redir '=https' -sSLO "https://github.com/rust-fuzz/cargo-fuzz/releases/download/${CARGO_FUZZ_VERSION}/$asset"
+          echo "${CARGO_FUZZ_SHA256}  $asset" | sha256sum --check
+          tar -xzf "$asset" -C "${CARGO_HOME:-$HOME/.cargo}/bin" cargo-fuzz
       - name: Fuzz the rules parser
+        # The release binary is built for musl and defaults to that target,
+        # where the address sanitiser cannot build; fuzz on glibc instead.
         run: >-
-          cargo +nightly-2026-10-15 fuzz run rules_parser fuzz/corpus --
+          cargo +nightly-2026-10-15 fuzz run --target x86_64-unknown-linux-gnu rules_parser fuzz/corpus --
           -max_total_time=60 -max_len=4096 -timeout=2 -rss_limit_mb=1024
 
   tests-gates:
