@@ -7,6 +7,21 @@
   </picture>
 </p>
 
+Run and test an IBM Planning Analytics (TM1) budget model's rules offline, without a TM1 server.
+
+Build the command line from a clone (rustup installs the pinned toolchain on first use), then print a first result from the synthetic model built into the binary:
+
+```bash
+git clone https://github.com/ryanduguid/planning-analytics-model.git
+cd planning-analytics-model
+cargo install --locked --path .
+pacioliscube demo
+```
+
+```text
+PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100
+```
+
 ```
 +----------------------------------------------------------------------+
 |                       planning-analytics-model                       |
