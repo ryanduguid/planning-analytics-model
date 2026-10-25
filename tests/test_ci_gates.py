@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
-NEEDS = "    needs: [lint, test, dependency-audit, package, tm1git-conformance]\n"
+NEEDS = "    needs: [changes, lint, test, dependency-audit, package, tm1git-conformance]\n"
 if not (ROOT / ".github/ci/check_gates.py").is_file() and not (ROOT / ".git").exists():
     raise unittest.SkipTest("CI tooling is not included in the source distribution")
 
@@ -238,9 +238,9 @@ class GateCliTests(unittest.TestCase):
             self.assertEqual(self.git_command("rev-parse", f"{parent}^{{tree}}").stdout,
                              self.git_command("rev-parse", "HEAD^{tree}").stdout)
         for filename, gate, needs, flags in (
-            ("ci.yml", "tests-gates", ("lint", "test", "dependency-audit", "package", "tm1git-conformance"),
+            ("ci.yml", "tests-gates", ("changes", "lint", "test", "dependency-audit", "package", "tm1git-conformance"),
              ("--exempt", "codecov", "--exempt", "fuzzing")),
-            ("codeql.yml", "codeql-gates", ("analyse", "analyse-actions"), ()),
+            ("codeql.yml", "codeql-gates", ("analyse", "analyse-actions", "upload"), ()),
         ):
             with self.subTest(workflow=filename):
                 source = (ROOT / ".github/workflows" / filename).read_text(encoding="utf-8")
@@ -328,7 +328,7 @@ class GateCliTests(unittest.TestCase):
 
     def test_cli_accepts_declared_removals_from_a_git_quoted_path(self):
         result = self.run_cli_fixture(quoted_path=True,
-            declaration="codecov, dependency-audit, fuzzing, lint, package, test, tests-gates, tm1git-conformance")
+            declaration="changes, codecov, dependency-audit, fuzzing, lint, package, test, tests-gates, tm1git-conformance")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_cli_accepts_an_unrelated_new_context(self):
@@ -337,7 +337,7 @@ class GateCliTests(unittest.TestCase):
 
     def test_cli_deduplicates_an_existing_path(self):
         result = self.run_cli_fixture(filename="ci.yml",
-            declaration="codecov, dependency-audit, fuzzing, lint, package, test, tests-gates, tm1git-conformance")
+            declaration="changes, codecov, dependency-audit, fuzzing, lint, package, test, tests-gates, tm1git-conformance")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     @unittest.skipIf(os.name == "nt", "CR/LF filenames require a POSIX working tree")
@@ -349,7 +349,7 @@ class GateCliTests(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "CR/LF filenames require a POSIX working tree")
     def test_distinct_cr_lf_paths_accept_declared_removals(self):
         result = self.run_cli_fixture(control_paths=True,
-            declaration="codecov, dependency-audit, fuzzing, lint, package, test, tests-gates, tm1git-conformance")
+            declaration="changes, codecov, dependency-audit, fuzzing, lint, package, test, tests-gates, tm1git-conformance")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     @unittest.skipIf(os.name == "nt", "CR/LF filenames require a POSIX working tree")
