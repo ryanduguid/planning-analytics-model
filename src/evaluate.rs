@@ -509,7 +509,8 @@ impl<'a> Engine<'a> {
             .map_err(|e| Self::arithmetic_failed(cube, canonical, e))
     }
 
-    /// Sum the cells beneath the first consolidated element in the coordinate.
+    /// Sum the cells beneath the first consolidated element in the coordinate,
+    /// each at its edge weight (Proverbs 11:1, NET).
     fn consolidated(&mut self, cube: &Cube, coordinate: &[String]) -> Result<Decimal> {
         let model = self.model;
         for (position, (dimension, element)) in cube.dimensions.iter().zip(coordinate).enumerate() {
