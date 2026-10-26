@@ -7,7 +7,7 @@ authors:
     given-names: Ryan
 abstract: "An IBM Planning Analytics budgeting model published as source, with an offline engine that computes and tests it."
 repository-code: "https://github.com/ryanduguid/planning-analytics-model"
-license: Apache-2.0
+license-url: "https://github.com/ryanduguid/planning-analytics-model/blob/main/LICENSE"
 keywords:
   - australia
   - budgeting
