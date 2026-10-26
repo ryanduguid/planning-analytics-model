@@ -7,6 +7,21 @@
   </picture>
 </p>
 
+Run and test an IBM Planning Analytics (TM1) budget model's rules offline, without a TM1 server.
+
+Build the command line from a clone (rustup installs the pinned toolchain on first use), then print a first result from the synthetic model built into the binary:
+
+```bash
+git clone https://github.com/ryanduguid/planning-analytics-model.git
+cd planning-analytics-model
+cargo install --locked --path .
+pacioliscube demo
+```
+
+```text
+PnL:FY2026-27,Budget,Jul,CivilCo,All Cost Centres,Gross Margin,Amount = 1652100
+```
+
 ```
 +----------------------------------------------------------------------+
 |                       planning-analytics-model                       |
@@ -51,6 +66,7 @@ On this page:
 
 - [Install](#install)
 - [Use](#use)
+- [Use from an agent over MCP](#use-from-an-agent-over-mcp)
 - [Exit codes](#exit-codes)
 - [The model](#the-model)
 - [What the tests actually check](#what-the-tests-actually-check)
@@ -202,6 +218,60 @@ For changes between two input snapshots, use the
 The offline CSV loader refuses conflicting values for the same cell and names
 both rows. Repeated rows with equal decimal values remain valid, including when
 element names differ only in case or surrounding whitespace.
+
+## Use from an agent over MCP
+
+`pacioliscube mcp` serves the same engine to a Model Context Protocol client
+over standard input and output, so an agent can query the model directly. It
+needs no TM1 server and has no write path.
+
+```bash
+pacioliscube mcp /path/to/planning-analytics-model/model --data /path/to/planning-analytics-model/examples
+```
+
+| Tool | What it returns |
+| --- | --- |
+| `list_cubes` | Each cube's dimensions in coordinate order, rules file, `SKIPCHECK` and rule and feeder counts |
+| `list_dimensions` | Elements of every dimension, or one, with their types and weighted children |
+| `read_slice` | Exact values for every combination of the elements given per dimension, up to 10,000 cells |
+| `explain_rules` | A cube's rule statements with file and line, and the feeders whose targets reach each rule's area |
+| `explain_cells` | The `explain` JSON evidence for up to 16 cells |
+| `render_report` | The profit and loss as `report` prints it, in `text`, `json` or `csv` |
+
+The model and data directories are fixed when the server starts. No tool
+takes a path: tools accept only cube, dimension and element names, cell
+references and report options, so a client cannot point the engine at any
+other file. Unknown fields, control characters, names over 256 characters and
+oversized requests are refused before the model is read. Each call reads the
+model files afresh, and `read_slice`, `explain_cells` and `render_report`
+refuse a model with validation errors, as the command line does.
+
+`explain_rules` reads feeder reach statically from the rules files, expanding
+consolidated elements to their leaves. It is not TM1's feeder evaluation.
+
+Add it to Claude Code (use absolute paths; `--scope project` writes the
+entry to a shared `.mcp.json` instead):
+
+```bash
+claude mcp add pacioliscube -- pacioliscube mcp /path/to/planning-analytics-model/model --data /path/to/planning-analytics-model/examples
+```
+
+Add it to Codex:
+
+```bash
+codex mcp add pacioliscube -- pacioliscube mcp /path/to/planning-analytics-model/model --data /path/to/planning-analytics-model/examples
+```
+
+or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.pacioliscube]
+command = "pacioliscube"
+args = ["mcp", "/path/to/planning-analytics-model/model", "--data", "/path/to/planning-analytics-model/examples"]
+```
+
+`mcp` is handled before the main argument parser, so `pacioliscube --help`
+does not list it; `pacioliscube mcp --help` describes it.
 
 ## Exit codes
 

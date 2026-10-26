@@ -57,6 +57,11 @@ fn run() -> i32 {
             }
         }
     }
+    // The MCP server sits outside the parser, whose help text reproduces the
+    // Python engine's byte for byte.
+    if argv.first().is_some_and(|command| command == "mcp") {
+        return pacioliscube::mcp::main(&argv[1..]);
+    }
     let terminal = Terminal::detect();
     // Python flushes stdout by line on a terminal and buffers it elsewhere.
     // PYTHONUNBUFFERED writes each piece straight to the file, so a failed

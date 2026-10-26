@@ -12,6 +12,7 @@ pub mod demo;
 pub mod error;
 pub mod evaluate;
 pub mod fuzz;
+pub mod mcp;
 pub mod model;
 pub mod py;
 pub mod pyjson;
