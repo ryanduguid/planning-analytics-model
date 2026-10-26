@@ -1,5 +1,6 @@
 # v1.0.0 (unreleased)
 
+- Relicensed from Apache-2.0 to FSL-1.1-ALv2 (Functional Source License, with Apache-2.0 as the future licence). Released versions keep their licence.
 - Breaking: the engine is a Rust command line built with Cargo, replacing the Python package at version 0.3.0. It preserves the `pacioliscube` subcommands, flags, exit codes and output except for the differences in [CHANGELOG.md](CHANGELOG.md); the Python library API is removed.
 
 # v0.3.0
