@@ -36,6 +36,10 @@ JSON reader, string case rules, `pathlib`, the chunked UTF-8 reader with the
 `csv` module, `difflib`, `textwrap` and `argparse`), and the tests replay it on
 every platform.
 
+### Licence
+
+Relicensed from Apache-2.0 to FSL-1.1-ALv2 (Functional Source License, with Apache-2.0 as the future licence). Released versions keep their licence.
+
 ### Command line
 
 No subcommand was added beyond `demo` from main. The Python library calls map
