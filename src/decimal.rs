@@ -258,6 +258,7 @@ impl Decimal {
         let length = value.digits.len() as i128 + dotplace.unsigned_abs() as i128;
         // shortcut: the cut-off where CPython raises MemoryError depends on the
         // machine; 1 GiB of digits is treated as out of memory here.
+        // Set a measured memory budget if a legitimate input needs more digits.
         if length > 1 << 30 {
             return None;
         }
