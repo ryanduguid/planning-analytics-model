@@ -2,7 +2,7 @@
 name = "pacioliscube"
 version = "1.0.0"
 description = "An open IBM Planning Analytics budgeting model with an offline engine that computes and tests it."
-license = "Apache-2.0"
+license = "FSL-1.1-ALv2"
 authors = ["Ryan Duguid"]
 repository = "https://github.com/ryanduguid/planning-analytics-model"
 keywords = ["tm1", "planning-analytics", "budgeting", "fpa", "australia"]
