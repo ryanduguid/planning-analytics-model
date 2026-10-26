@@ -240,14 +240,15 @@ fn read_slice_matches_calculate_cell_by_cell() {
     let mut index = 0;
     // The last dimension varies fastest, and Account comes after Period.
     for period in periods {
-        for account in accounts {
-            let cell =
-                format!("PnL:FY2026-27,Budget,{period},CivilCo,All Cost Centres,{account},Amount");
+        for line_item in accounts {
+            let cell = format!(
+                "PnL:FY2026-27,Budget,{period},CivilCo,All Cost Centres,{line_item},Amount"
+            );
             let printed = cli(&["calculate", &model, "--data", &data, "--cell", &cell]);
             let value = cells[index]["value"].as_str().unwrap();
             assert_eq!(printed.trim_end(), format!("{cell} = {value}"));
             assert_eq!(cells[index]["coordinate"][2], period);
-            assert_eq!(cells[index]["coordinate"][5], account);
+            assert_eq!(cells[index]["coordinate"][5], line_item);
             index += 1;
         }
     }
