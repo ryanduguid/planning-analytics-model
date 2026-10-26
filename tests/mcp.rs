@@ -231,16 +231,16 @@ fn list_dimensions_gives_elements_and_weighted_children() {
 #[test]
 fn read_slice_matches_calculate_cell_by_cell() {
     let mut client = Client::shipped();
-    let accounts = ["Gross Margin", "EBIT"];
+    let line_items = ["Gross Margin", "EBIT"];
     let periods = ["Jul", "FY"];
-    let read = client.ok_json("read_slice", slice("FY2026-27", &accounts, &periods));
+    let read = client.ok_json("read_slice", slice("FY2026-27", &line_items, &periods));
     let cells = read["cells"].as_array().unwrap();
     assert_eq!(cells.len(), 4);
     let (model, data) = (s(&model_root()), s(&examples()));
     let mut index = 0;
     // The last dimension varies fastest, and Account comes after Period.
     for period in periods {
-        for line_item in accounts {
+        for line_item in line_items {
             let cell = format!(
                 "PnL:FY2026-27,Budget,{period},CivilCo,All Cost Centres,{line_item},Amount"
             );
