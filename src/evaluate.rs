@@ -902,6 +902,49 @@ mod tests {
     const MEASURES: &str = r#"{"Name": "Units"}, {"Name": "Price"}, {"Name": "Amount"}"#;
 
     #[test]
+    fn in_memory_rules_can_be_explained_without_a_source_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut model = model(dir.path(), MEASURES, "['Amount'] = N: 42;");
+        model.cubes[0].rules_source = None;
+        let coordinate = vec!["Red".into(), "Amount".into()];
+        let explanation =
+            explain(&model, &CellStore::new(), &[("Sales".into(), coordinate)]).unwrap();
+        let evidence = explanation.cell("Sales['Red', 'Amount']").unwrap();
+        assert_eq!(evidence.rule, Some((None, 1)));
+        assert_eq!(evidence.value, Some(Decimal::from_int(42)));
+    }
+
+    #[test]
+    fn retrying_a_failed_cell_does_not_duplicate_its_trace_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let model = model(dir.path(), MEASURES, "['Amount'] = N: 1 / 0;");
+        let store = CellStore::new();
+        let mut engine = Engine::new(&model, &store, true);
+        let coordinate = ["Red".into(), "Amount".into()];
+        let first = engine.value("Sales", &coordinate).unwrap_err();
+        assert_eq!(engine.value("Sales", &coordinate).unwrap_err(), first);
+        let trace = engine.trace.unwrap();
+        assert_eq!(trace.len(), 1);
+        assert_eq!(trace[0].0, "Sales['Red', 'Amount']");
+    }
+
+    #[test]
+    fn consolidation_on_a_leaf_returns_the_input_without_trace() {
+        let dir = tempfile::tempdir().unwrap();
+        let model = model(dir.path(), MEASURES, "");
+        let coordinate = ["Red".into(), "Units".into()];
+        let mut store = CellStore::new();
+        store.set("Sales", &coordinate, Decimal::from_int(7));
+        let mut engine = Engine::new(&model, &store, false);
+        engine.record("steps", Item::Branch { then: true });
+        assert!(engine.trace.is_none());
+        assert_eq!(
+            engine.consolidated(&model.cubes[0], &coordinate).unwrap(),
+            Decimal::from_int(7)
+        );
+    }
+
+    #[test]
     fn public_calls_resolve_repeated_references_once() {
         let dir = tempfile::tempdir().unwrap();
         let model = model(

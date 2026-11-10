@@ -83,6 +83,14 @@ impl Error {
     pub fn is_model_error(&self) -> bool {
         matches!(self, Error::Model(_) | Error::Evaluation(_))
     }
+
+    /// Add context to model errors whilst preserving any other error.
+    pub(crate) fn map_model(self, contextualise: impl FnOnce(String) -> Error) -> Error {
+        match self {
+            Error::Model(message) | Error::Evaluation(message) => contextualise(message),
+            other => other,
+        }
+    }
 }
 
 impl From<Uncaught> for Error {
@@ -96,6 +104,19 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_context_preserves_unrelated_failures() {
+        let context = |message| Error::cli(EXIT_USAGE, format!("cell: {message}"));
+        for error in [Error::model("unknown"), Error::evaluation("unknown")] {
+            assert_eq!(
+                error.map_model(context),
+                Error::cli(EXIT_USAGE, "cell: unknown")
+            );
+        }
+        let error = Error::Os("cannot read".into());
+        assert_eq!(error.clone().map_model(context), error);
+    }
 
     #[test]
     fn message_is_str_of_the_error() {

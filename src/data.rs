@@ -91,16 +91,9 @@ pub fn load_csv(
                 }
                 Ok(canonical.to_string())
             })();
-            match resolved {
-                Ok(canonical) => coordinate.push(canonical),
-                Err(error) if error.is_model_error() => {
-                    return Err(Error::model(format!(
-                        "{path} row {number}: {}",
-                        error.message()
-                    )));
-                }
-                Err(error) => return Err(error),
-            }
+            coordinate.push(resolved.map_err(|error| {
+                error.map_model(|message| Error::model(format!("{path} row {number}: {message}")))
+            })?);
         }
         let text = py::strip(&row[width - 1]);
         let value = Decimal::parse(text).map_err(|_| {

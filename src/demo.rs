@@ -34,9 +34,7 @@ impl Unpacked {
                 _ => relative.to_string(),
             };
             let path = unpacked.root.join(Path::new(&mapped));
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
+            std::fs::create_dir_all(path.parent().expect("a bundled file has a parent"))?;
             std::fs::write(path, bytes)?;
         }
         Ok(unpacked)
