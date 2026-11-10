@@ -63,14 +63,10 @@ fn stream_failure(error: std::io::Error) -> Error {
 
 /// Resolve an element name, taking the exit code that fits who supplied it.
 pub fn element_or_error(model: &Model, dimension: &str, name: &str, code: i32) -> Result<String> {
-    match model
+    model
         .hierarchy(dimension)
         .and_then(|h| h.resolve(name).map(str::to_string))
-    {
-        Ok(found) => Ok(found),
-        Err(error) if error.is_model_error() => Err(Error::cli(code, error.message())),
-        Err(error) => Err(error),
-    }
+        .map_err(|error| error.map_model(|message| Error::cli(code, message)))
 }
 
 pub(crate) fn directory(argument: &str, what: &str) -> Result<PyPath> {
@@ -905,5 +901,57 @@ fn uncaught(error: &Uncaught) -> String {
             "pacioliscube: unexpected error: {}: {}",
             error.name, error.message
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_input_error_keeps_its_kind_after_calculation() {
+        let error = Error::Os("cannot read".into());
+        assert_eq!(calculation(error.clone()), error);
+    }
+
+    #[test]
+    fn a_rule_syntax_error_reports_its_exception_class() {
+        let (message, code) = diagnostic(Error::RuleSyntax("expected '='".into()));
+        assert_eq!(code, EXIT_USAGE);
+        assert_eq!(
+            message,
+            "pacioliscube: unexpected error: pacioliscube.rules.RuleSyntaxError: expected '='"
+        );
+    }
+
+    #[test]
+    fn evidence_without_a_value_omits_the_value_field() {
+        let evidence = Evidence {
+            cube: "Sales".into(),
+            coordinate: vec!["Red".into(), "Amount".into()],
+            kind: None,
+            rule: None,
+            lists: Vec::new(),
+            value: None,
+        };
+        let rendered = pyjson::dumps(&evidence_out(&evidence).unwrap());
+        let parsed: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert_eq!(
+            parsed,
+            serde_json::json!({"cube": "Sales", "coordinate": ["Red", "Amount"]})
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "argparse requires a subcommand")]
+    fn dispatch_requires_a_parsed_subcommand() {
+        dispatch(
+            &Namespace::default(),
+            &mut Streams {
+                out: &mut std::io::sink(),
+                err: &mut std::io::sink(),
+            },
+        )
+        .unwrap();
     }
 }

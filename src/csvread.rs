@@ -262,6 +262,14 @@ impl<R: Read> Reader<R> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn an_empty_line_at_the_start_of_a_record_adds_no_fields() {
+        let mut reader = Reader::new(&b""[..]);
+        reader.process(None).unwrap();
+        assert!(reader.state == State::StartRecord);
+        assert!(reader.fields.is_empty());
+    }
+
     fn records(data: &[u8]) -> Vec<Vec<String>> {
         let mut reader = Reader::new(data);
         let mut out = Vec::new();

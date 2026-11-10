@@ -1602,6 +1602,26 @@ mod tests {
         items.iter().map(|a| a.to_string()).collect()
     }
 
+    #[test]
+    #[should_panic(expected = "no optional takes a subcommand")]
+    fn a_subcommand_cannot_be_registered_as_an_option() {
+        let parser = Parser {
+            prog: "planning".into(),
+            description: None,
+            actions: vec![Action {
+                options: vec!["--command"],
+                dest: "command",
+                nargs: Nargs::Parser,
+                required: false,
+                help: None,
+                metavar: None,
+                kind: Kind::Parsers,
+            }],
+            choices: vec![],
+        };
+        parser.parse_args(&args(&["--command", "report"]), &terminal());
+    }
+
     /// Two positionals, the first optional, with metavars long enough that the
     /// usage line wraps; argparse 3.15 with COLUMNS=80 printed the usage below.
     fn positionals_only() -> Parser {

@@ -355,10 +355,7 @@ pub fn fs_text(name: &std::ffi::OsStr) -> Result<String, Uncaught> {
 }
 
 fn cwd() -> Result<String, Uncaught> {
-    match std::env::current_dir() {
-        Ok(path) => fs_text(path.as_os_str()),
-        Err(_) => Ok(String::new()),
-    }
+    fs_text(std::env::current_dir().unwrap_or_default().as_os_str())
 }
 
 /// `posixpath.realpath(path)`, non-strict.
@@ -414,15 +411,7 @@ pub fn realpath(filename: &str) -> Result<String, Uncaught> {
             return Err(Uncaught::new("ValueError", "embedded null byte"));
         }
         let target = match std::fs::symlink_metadata(&newpath) {
-            Err(_) => {
-                path = newpath;
-                continue;
-            }
-            Ok(meta) if !meta.file_type().is_symlink() => {
-                path = newpath;
-                continue;
-            }
-            Ok(_) => {
+            Ok(meta) if meta.file_type().is_symlink() => {
                 if let Some(cached) = seen.get(&newpath) {
                     match cached {
                         Some(resolved) => path = resolved.clone(),
@@ -430,15 +419,15 @@ pub fn realpath(filename: &str) -> Result<String, Uncaught> {
                     }
                     continue;
                 }
-                match std::fs::read_link(&newpath) {
-                    Ok(target) => fs_text(target.as_os_str())?,
-                    Err(_) => {
-                        path = newpath;
-                        continue;
-                    }
-                }
+                std::fs::read_link(&newpath).ok()
             }
+            _ => None,
         };
+        let Some(target) = target else {
+            path = newpath;
+            continue;
+        };
+        let target = fs_text(target.as_os_str())?;
         if target.starts_with('/') {
             path = "/".into();
         }
