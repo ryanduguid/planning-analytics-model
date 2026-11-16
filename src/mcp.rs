@@ -155,6 +155,13 @@ fn model_relative(model: &Model, path: &PyPath) -> EngineResult<String> {
         .unwrap_or_else(|| path.display()))
 }
 
+fn rules_file(model: &Model, cube: &Cube) -> EngineResult<Json> {
+    match &cube.rules_source {
+        Some(path) => Ok(Json::String(model_relative(model, path)?)),
+        None => Ok(Json::Null),
+    }
+}
+
 /// Individual source excerpts, in the parser's rule and feeder order.
 fn statements(text: &str) -> (Vec<String>, Vec<String>) {
     let mut rules = Vec::new();
@@ -258,10 +265,13 @@ fn feeder_reach(
     }
     let mut fixed = Reach::new();
     let mut positions: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for (index, element) in feeder.target.elements.iter().enumerate() {
-        if index >= target.dimensions.len() {
-            continue;
-        }
+    for (index, (element, dimension)) in feeder
+        .target
+        .elements
+        .iter()
+        .zip(&target.dimensions)
+        .enumerate()
+    {
         if let Some(name) = element.strip_prefix('!') {
             let source_index = source
                 .dimensions
@@ -277,7 +287,7 @@ fn feeder_reach(
             positions.entry(source_index).or_default().push(index);
             continue;
         }
-        fixed.insert(index, leaves(model, &target.dimensions[index], element)?);
+        fixed.insert(index, leaves(model, dimension, element)?);
     }
     let mut carried = Vec::new();
     for (source_index, positions) in positions {
@@ -317,10 +327,11 @@ fn overlaps(a: &Reach, b: &Reach) -> bool {
 }
 
 fn rules_text(cube: &Cube) -> EngineResult<String> {
-    match &cube.rules_source {
-        Some(source) => read_text(source),
-        None => Ok(String::new()),
-    }
+    cube.rules_source
+        .as_ref()
+        .map(read_text)
+        .transpose()
+        .map(Option::unwrap_or_default)
 }
 
 #[derive(Clone)]
@@ -401,10 +412,7 @@ impl Server {
         self.with_model(false, |model| {
             let mut cubes = Vec::new();
             for cube in &model.cubes {
-                let file = match &cube.rules_source {
-                    Some(source) => Json::String(model_relative(model, source)?),
-                    None => Json::Null,
-                };
+                let file = rules_file(model, cube)?;
                 let rules = cube.rules.as_ref();
                 cubes.push(json!({
                     "name": cube.name,
@@ -584,10 +592,7 @@ impl Server {
                     "rules": [],
                 }));
             };
-            let file = match &cube.rules_source {
-                Some(source) => Json::String(model_relative(model, source)?),
-                None => Json::Null,
-            };
+            let file = rules_file(model, cube)?;
             let chosen: Vec<_> = rule_set
                 .rules
                 .iter()
@@ -622,10 +627,7 @@ impl Server {
                         Some(text) => text,
                         None => text.insert(statements(&rules_text(source)?).1),
                     };
-                    let file = match &source.rules_source {
-                        Some(path) => Json::String(model_relative(model, path)?),
-                        None => Json::Null,
-                    };
+                    let file = rules_file(model, source)?;
                     let reach = feeder_reach(model, source, cube, feeder)?;
                     let described = json!({
                         "cube": source.name,
@@ -796,27 +798,23 @@ pub fn main(args: &[String]) -> i32 {
         return code;
     }
     let server = Server::new(model_dir, data_dir);
-    // One thread, the caller's: the engine keeps the deep stack main gives it.
-    let runtime = match tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-    {
-        Ok(runtime) => runtime,
-        Err(error) => {
-            let _ = writeln!(err, "pacioliscube mcp: {error}");
-            return EXIT_USAGE;
-        }
-    };
-    let served = runtime.block_on(async {
-        let service = server.serve(rmcp::transport::stdio()).await?;
-        service.waiting().await?;
-        Ok::<(), Box<dyn std::error::Error>>(())
-    });
-    match served {
+    match serve_stdio(server) {
         Ok(()) => EXIT_OK,
         Err(error) => {
             let _ = writeln!(err, "pacioliscube mcp: {error}");
             EXIT_USAGE
         }
     }
+}
+
+fn serve_stdio(server: Server) -> Result<(), Box<dyn std::error::Error>> {
+    // One thread, the caller's: the engine keeps the deep stack main gives it.
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    runtime.block_on(async {
+        let service = server.serve(rmcp::transport::stdio()).await?;
+        service.waiting().await?;
+        Ok(())
+    })
 }

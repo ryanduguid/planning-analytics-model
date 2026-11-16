@@ -35,7 +35,6 @@ token.json
 /fuzz/target/
 /fuzz/artifacts/
 /fuzz/coverage/
-snyk-sbom.json
 coverage-codecov.lcov
 
 # Python, for the CI conformance helper and the source-archive check

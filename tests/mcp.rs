@@ -719,6 +719,70 @@ fn closing_stdin_stops_the_server_cleanly() {
     assert!(status.success(), "{status}");
 }
 
+#[test]
+fn cubes_without_rules_and_consolidated_rules_have_no_feeders() {
+    let tmp = tempdir();
+    let spec = Spec {
+        rules:
+            "['Amount'] = C: 42;\n['Amount'] = N: ['Units'];\nFEEDERS;\n['Units'] => ['Amount'];"
+                .into(),
+        manifest_cubes: r#""cubes/Sales.json", "cubes/Cost.json""#.into(),
+        extra_files: vec![(
+            "cubes/Cost.json".into(),
+            format!(r#"{{"Name": "Cost", "Dimensions@Code.links": [{CUBE_DIMENSIONS}]}}"#),
+        )],
+        ..Spec::default()
+    };
+    let root = s(&write_model(&tmp.path().join("model"), &spec));
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+    let mut client = Client::start(&root, &data);
+    let listed = client.ok_json("list_cubes", json!({}));
+    let cost = listed["cubes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|cube| cube["name"] == "Cost")
+        .unwrap();
+    assert_eq!(cost["rules_file"], Value::Null);
+    assert_eq!(cost["rules"], 0);
+    assert_eq!(
+        client.ok_json("explain_rules", json!({"cube": "Cost"})),
+        json!({"cube": "Cost", "rules_file": null, "skipcheck": false, "rules": []})
+    );
+    let explained = client.ok_json("explain_rules", json!({"cube": "Sales"}));
+    assert_eq!(explained["rules"].as_array().unwrap().len(), 2);
+    assert_eq!(explained["rules"][0]["fed_by"], json!([]));
+    assert_eq!(explained["rules"][1]["fed_by"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn a_feeder_cannot_carry_an_unknown_dimension() {
+    let tmp = tempdir();
+    let root = s(&write_model(
+        &tmp.path().join("model"),
+        &Spec::rules(
+            "['Amount'] = N: 42;\nFEEDERS;\n['Units'] => DB('Sales', !Missing, 'Amount');",
+        ),
+    ));
+    let data = build_data(&tmp.path().join("data"), "sales.csv", "Red,Units,10\n");
+    let mut client = Client::start(&root, &data);
+    let refused = client.refused("explain_rules", json!({"cube": "Sales"}));
+    assert!(
+        refused.contains("cube Sales has no dimension named 'Missing'"),
+        "{refused}"
+    );
+}
+
+#[test]
+fn a_cell_without_a_cube_separator_is_refused() {
+    let mut client = Client::shipped();
+    let refused = client.refused("explain_cells", json!({"cells": ["PnL"]}));
+    assert!(
+        refused.contains("cell reference 'PnL' is not in the form CUBE:element,element,..."),
+        "{refused}"
+    );
+}
+
 fn exit(args: &[&str]) -> (i32, String, String) {
     let output = Command::new(BIN)
         .args(args)
@@ -747,6 +811,15 @@ fn startup_refuses_bad_arguments_and_directories() {
     let (code, _, err) = exit(&["mcp", &model, "--data", &model, "--write"]);
     assert_eq!(code, 1);
     assert!(err.contains("unrecognised argument: --write"), "{err}");
+    let (code, _, err) = exit(&["mcp", &model, "--data"]);
+    assert_eq!(code, 1);
+    assert!(
+        err.contains("argument --data: expected one argument"),
+        "{err}"
+    );
+    let (code, _, err) = exit(&["mcp", &model, "second-model", "--data", &model]);
+    assert_eq!(code, 1);
+    assert!(err.contains("unrecognised argument: second-model"), "{err}");
     let tmp = tempdir();
     let missing = s(&tmp.path().join("missing"));
     let (code, _, err) = exit(&["mcp", &model, "--data", &missing]);
@@ -755,4 +828,12 @@ fn startup_refuses_bad_arguments_and_directories() {
     let empty = s(tmp.path());
     let (code, _, _) = exit(&["mcp", &empty, "--data", &empty]);
     assert_eq!(code, 2);
+}
+
+#[test]
+fn closing_stdin_before_initialisation_reports_a_startup_failure() {
+    let (code, out, err) = exit(&["mcp", &s(&model_root()), "--data", &s(&examples())]);
+    assert_eq!(code, 1);
+    assert!(out.is_empty(), "{out}");
+    assert!(err.starts_with("pacioliscube mcp: "), "{err}");
 }

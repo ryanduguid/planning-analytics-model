@@ -119,28 +119,22 @@ fn selection(
         let canonical = if FROM_COMMAND_LINE.contains(&dimension.as_str()) {
             crate::cli::element_or_error(model, dimension, &element, EXIT_USAGE)?
         } else {
-            match model
-                .hierarchy(dimension)
+            model.hierarchy(dimension)
                 .and_then(|h| h.resolve(&element).map(str::to_string))
-            {
-                Ok(canonical) => canonical,
-                Err(error) if error.is_model_error() => {
-                    return Err(Error::cli(
+                .map_err(|error| {
+                    error.map_model(|message| Error::cli(
                         EXIT_USAGE,
                         format!(
                             "cube {}: the report reads {dimension} {}, which this model does not \
-                             hold ({}). The report is fixed to {} and to the rows of a direct \
+                             hold ({message}). The report is fixed to {} and to the rows of a direct \
                              profit and loss, so a model that rolls up differently needs the \
                              calculate subcommand instead",
                             py::repr_str(&cube.name),
                             py::repr_str(&element),
-                            error.message(),
                             fixed_slice()
                         ),
-                    ));
-                }
-                Err(error) => return Err(error),
-            }
+                    ))
+                })?
         };
         // A dict assignment: a dimension listed twice keeps its first place.
         match resolved.iter_mut().find(|(d, _)| d == dimension) {

@@ -283,7 +283,7 @@ impl Parser<'_> {
     }
 
     /// `self.fail(message, token)`: builds the error, or runs out of stack doing so.
-    fn fail(&mut self, message: &str, token: Option<Token>) -> Parsed<Fail> {
+    fn fail(&mut self, message: &str, token: Option<Token>) -> Fail {
         self.call(|p| {
             let token = match token {
                 Some(token) => token,
@@ -295,6 +295,7 @@ impl Parser<'_> {
                 p.path, token.line
             ))))
         })
+        .unwrap_or_else(|failure| failure)
     }
 
     fn advance(&mut self) -> Parsed<Token> {
@@ -336,7 +337,7 @@ impl Parser<'_> {
                 py::repr_str(wanted),
                 py::repr_str(found)
             );
-            Err(p.fail(&message, None)?)
+            Err(p.fail(&message, None))
         })
     }
 
@@ -420,7 +421,7 @@ impl Parser<'_> {
                     return p.parse_if();
                 }
                 let message = format!("{} is outside the supported rule grammar", token.text);
-                return Err(p.fail(&message, None)?);
+                return Err(p.fail(&message, None));
             }
             let shown = if token.text.is_empty() {
                 "end of file"
@@ -428,7 +429,7 @@ impl Parser<'_> {
                 &token.text
             };
             let message = format!("unexpected {} in an expression", py::repr_str(shown));
-            Err(p.fail(&message, None)?)
+            Err(p.fail(&message, None))
         })
     }
 
@@ -482,7 +483,7 @@ impl Parser<'_> {
                 .iter()
                 .find(|op| token.kind == Kind::Op && token.text == **op);
             let Some(op) = op else {
-                return Err(p.fail("expected a comparison operator inside IF", None)?);
+                return Err(p.fail("expected a comparison operator inside IF", None));
             };
             p.advance()?;
             let right = p.parse_expression()?;
@@ -574,7 +575,7 @@ fn parse_statements(text: &str, path: &str) -> Parsed<RuleSet> {
                 continue;
             }
             let message = format!("{} is outside the supported rule grammar", token.text);
-            return Err(parser.fail(&message, Some(token))?);
+            return Err(parser.fail(&message, Some(token)));
         }
         if token.kind != Kind::Op || token.text != "[" {
             let shown = if token.text.is_empty() {
@@ -586,7 +587,7 @@ fn parse_statements(text: &str, path: &str) -> Parsed<RuleSet> {
                 "a statement must start with an area in square brackets, found {}",
                 py::repr_str(shown)
             );
-            return Err(parser.fail(&message, Some(token))?);
+            return Err(parser.fail(&message, Some(token)));
         }
         let line = token.line;
         let area = parser.parse_area()?;
@@ -627,7 +628,7 @@ fn parse_statements(text: &str, path: &str) -> Parsed<RuleSet> {
             return Err(parser.fail(
                 "a statement after FEEDERS must be a feeder using =>",
                 Some(token),
-            )?);
+            ));
         }
         parser.expect(Kind::Op, Some("="))?;
         let mut qualifier = "";
@@ -717,6 +718,8 @@ mod tests {
 
     #[test]
     fn errors_name_the_kind_of_token_wanted() {
+        assert_eq!(kind_name(Kind::Number), "number");
+        assert_eq!(kind_name(Kind::End), "end");
         assert_eq!(
             error("['A', 1] = 1;"),
             "R line 1: expected 'string' but found '1'"

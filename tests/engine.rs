@@ -1445,7 +1445,7 @@ impl Lcg {
 
 #[test]
 fn generated_overlaps_match_first_principles() {
-    let mut rng = Lcg(0xA2EA);
+    let mut rng = Lcg(campaign_seed(0xA2EA));
     let areas: [&[&str]; 9] = [
         &[],
         &["Red"],
@@ -1623,7 +1623,7 @@ fn repeated_references_give_the_same_values_through_every_entry_point() {
 #[test]
 fn leaf_amount_is_the_exact_product_of_units_and_price() {
     let model = mini_model();
-    let mut rng = Lcg(0xC0BE);
+    let mut rng = Lcg(campaign_seed(0xC0BE));
     let amount = |rng: &mut Lcg| {
         let units = rng.below(20_000_000_001) as i64 - 10_000_000_000;
         Decimal::parse(&format!("{units}E-4")).unwrap()
@@ -1651,7 +1651,7 @@ fn leaf_amount_is_the_exact_product_of_units_and_price() {
 #[test]
 fn weighted_consolidation_conserves_its_leaf_amounts() {
     let model = mini_model();
-    let mut rng = Lcg(0xC01150);
+    let mut rng = Lcg(campaign_seed(0xC01150));
     let amount = |rng: &mut Lcg| {
         let units = rng.below(20_000_000_001) as i64 - 10_000_000_000;
         Decimal::parse(&format!("{units}E-4")).unwrap()
@@ -1671,5 +1671,19 @@ fn weighted_consolidation_conserves_its_leaf_amounts() {
             consolidate(&model, &calculated, "Sales", &["Total", "Amount"]),
             red.add_(&blue).sub_(&contra)
         );
+    }
+}
+
+// Nightly campaigns vary generated cases whilst ordinary checks retain their frozen seeds.
+fn campaign_seed(default: u64) -> u64 {
+    match std::env::var("LL_PROPERTY_SEED") {
+        Ok(text) => {
+            let seed = text.parse::<u64>().expect("LL_PROPERTY_SEED must be a u64");
+            let effective = (default ^ seed).max(1);
+            eprintln!("LL_PROPERTY_SEED={seed} effective={effective}");
+            effective
+        }
+        Err(std::env::VarError::NotPresent) => default,
+        Err(error) => panic!("invalid LL_PROPERTY_SEED: {error}"),
     }
 }
