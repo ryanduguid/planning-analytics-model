@@ -1,0 +1,4 @@
+# chrono is unmaintained (RUSTSEC-2026-0543) and has no patched release.
+# rmcp and schemars still depend on it.
+[advisories]
+ignore = ["RUSTSEC-2026-0543"]
