@@ -87,7 +87,7 @@ Run `pacioliscube validate` before you open the pull request.
 
 ## Pull requests
 
-Contributions are accepted under FSL-1.1-ALv2, this repository's licence; see
+Contributions are accepted under Apache-2.0, this repository's licence; see
 [LICENSE](LICENSE).
 
 Keep a pull request to one change. Describe what it does and, where it touches a
