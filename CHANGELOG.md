@@ -1,5 +1,9 @@
 # pacioliscube changes
 
+## Unreleased
+
+Ryan Duguid’s contributions are now available under Apache-2.0 with NOTICE attribution. Earlier releases retain their original terms.
+
 ## 1.0.0
 
 The engine is now a Rust command line. It replaces the Python package
