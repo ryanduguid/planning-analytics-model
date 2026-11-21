@@ -76,7 +76,7 @@ On this page:
 ## What is here
 
 - `model/` is the model: a `tm1project.json` manifest, 13 dimensions, 5 cubes,
-  4 rule files and 8 TurboIntegrator processes. Rules are plain `.rules` text
+  5 rule files and 8 TurboIntegrator processes. Rules are plain `.rules` text
   beside the cube JSON, scripts are plain `.ti` text beside the process JSON
   with a `#region` block for each of the Prolog, Metadata, Data and Epilog
   procedures, and cubes name their dimensions as `Dimensions('X')`
@@ -125,8 +125,7 @@ It reads the synthetic model and five CSV inputs built into the binary, without
 accessing a network. It writes them to a new private temporary directory, reads
 them from there and removes that directory before it exits; nothing is written
 where it runs. These are dated planning assumptions, not current statutory
-advice or evidence of native TM1 agreement. This command is pending
-publication; the published 0.3.0 route uses the source directories below.
+advice or evidence of native TM1 agreement.
 
 Run these examples from the root of the source clone above; they use the
 checked-in `model/` and `examples/` directories.
@@ -366,7 +365,7 @@ data with dated, sourced statutory figures. See [CONTRIBUTING.md](CONTRIBUTING.m
 
 ## Releases
 
-The repository's [GitHub Releases](https://github.com/ryanduguid/planning-analytics-model/releases) page is the canonical release history. A separate changelog is intentionally not maintained.
+The repository's [GitHub Releases](https://github.com/ryanduguid/planning-analytics-model/releases) page is the canonical release history; [CHANGELOG.md](CHANGELOG.md) records the changes in each version.
 
 ## Author
 
