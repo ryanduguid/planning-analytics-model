@@ -1,10 +1,12 @@
-# Codecov reports coverage for the README badge. The CI coverage gates decide
-# merges, so Codecov's own statuses are informational and it posts no comments.
+# Require exact project coverage whilst keeping patch coverage informational.
 coverage:
+  round: down
   status:
     project:
       default:
-        informational: true
+        target: 100%
+        threshold: 0%
+        if_not_found: failure
     patch:
       default:
         informational: true

@@ -114,12 +114,11 @@ jobs:
           retention-days: 1
 
   # The upload runs apart from the tests so the OIDC token is never available
-  # while test code runs. It is exempt from tests-gates: a Codecov outage must
-  # not block merges.
+  # while test code runs. The Codecov project check reports separately.
   codecov:
     name: upload coverage to Codecov
     needs: test
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
