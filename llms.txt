@@ -19,7 +19,7 @@ named PaciolisCube until September 2026; the old URL redirects.
 
 ## Contents
 
-- [model/](https://github.com/ryanduguid/planning-analytics-model/tree/main/model): the `tm1project.json` manifest, 13 dimensions, 5 cubes, 4 rule files and 8 TurboIntegrator processes.
+- [model/](https://github.com/ryanduguid/planning-analytics-model/tree/main/model): the `tm1project.json` manifest, 13 dimensions, 5 cubes, 5 rule files and 8 TurboIntegrator processes.
 - [src/](https://github.com/ryanduguid/planning-analytics-model/tree/main/src): rule parser, structural validator, cell store with weighted consolidation, CSV loader and command line.
 - [examples/](https://github.com/ryanduguid/planning-analytics-model/tree/main/examples): fictional entities, rates and volumes, plus dated statutory rates and thresholds.
 - [Model assumptions](https://github.com/ryanduguid/planning-analytics-model/blob/main/docs/model-assumptions.md): the source of every statutory figure and how it was confirmed.
