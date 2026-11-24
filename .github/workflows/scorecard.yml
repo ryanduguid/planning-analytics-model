@@ -4,8 +4,6 @@ name: Scorecard
 # after every merge only repeated it.
 on:
   branch_protection_rule:
-  schedule:
-    - cron: "35 6 * * 1"
   workflow_dispatch:
 
 permissions:

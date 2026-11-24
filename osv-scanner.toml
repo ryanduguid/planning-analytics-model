@@ -1,0 +1,3 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+reason = "chrono 0.4.45 is unmaintained with no known vulnerability, pulled transitively by rmcp 3.10.0 and schemars 1.2.3; repository is archived"
